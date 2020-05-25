@@ -32,6 +32,21 @@ struct context {
   uint eip;
 };
 
+struct page {
+  uint offset;
+  int age;
+  char *virt_addr;
+};
+
+// page that avilable to process but no used yet
+struct unusedpage {
+  char *virt_addr;
+  int age;
+  struct unusedpage *next; // the next avilable not used page
+  struct unusedpage *prev; // the prev avilabe not used page
+};
+
+
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
@@ -50,7 +65,13 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   //Swap file. must initiate with create swap file
-  struct file *swapFile;      //page file
+  struct file *swapFile;       //page file
+  uint nummemorypages;         // number of pages in process memory (without kernel pages)
+  uint numswappages;           // num of pages reside in the swap file
+  struct page swappedPages [MAX_PSYC_PAGES];  // Swapped pages of this process
+  struct unusedpage unusedpages [MAX_PSYC_PAGES];
+  struct unusedpage *head_unused;  // head of the unused pages linked list, allways be the next page to use
+  struct freepg *tail_unused; // the tail of the unused pages linked list. allways be the last page to use
 };
 
 // Process memory is laid out contiguously, low addresses first:

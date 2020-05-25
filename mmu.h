@@ -3,7 +3,6 @@
 
 // Eflags register
 #define FL_IF           0x00000200      // Interrupt Enable
-
 // Control Register flags
 #define CR0_PE          0x00000001      // Protection Enable
 #define CR0_WP          0x00010000      // Write Protect
@@ -91,10 +90,19 @@ struct segdesc {
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
 // Page table/directory entry flags.
-#define PTE_P           0x001   // Present
-#define PTE_W           0x002   // Writeable
-#define PTE_U           0x004   // User
-#define PTE_PS          0x080   // Page Size
+#define PTE_P           0x001           // Present
+#define PTE_W           0x002           // Writeable
+#define PTE_U           0x004           // User
+#define PTE_PS          0x080           // Page Size
+#define PTE_PG          0x00000200      // Paged out to secondary storage 
+
+// Page fault error codes
+#define FEC_PR		0x00000001	// Page fault caused by protection violation
+#define FEC_WR		0x00000002	// Page fault caused by a write
+#define FEC_U		0x00000004	// Page fault occured while in user mode
+
+// COW implementation
+#define PTE_COW 0x800
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte)   ((uint)(pte) & ~0xFFF)

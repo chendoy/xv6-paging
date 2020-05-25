@@ -30,6 +30,12 @@ outw(ushort port, ushort data)
   asm volatile("out %0,%1" : : "a" (data), "d" (port));
 }
 
+static inline void 
+invlpg(void *addr)
+{ 
+	__asm __volatile("invlpg (%0)" : : "r" (addr) : "memory");
+}  
+
 static inline void
 outsl(int port, const void *addr, int cnt)
 {

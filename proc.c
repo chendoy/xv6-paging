@@ -112,6 +112,22 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  // init page data, initiaing the swapped pages and the unused pages
+  for (int i = 0; i < MAX_PSYC_PAGES; i++) {
+    p->swappedPages[i].virt_addr = (char*)0xffffffff;
+    p->unusedpages[i].virt_addr = (char*)0xffffffff;
+    p->swappedPages[i].age = 0;
+    p->unusedpages[i].age = 0;
+    p->swappedPages[i].offset = 0;
+    p->unusedpages[i].next = 0;
+    p->unusedpages[i].prev = 0;
+  }
+
+  p->nummemorypages = 0;
+  p->numswappages = 0;
+  p->head_unused = 0;
+  p->tail_unused = 0;
+
   return p;
 }
 
@@ -211,6 +227,34 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+  createSwapFile(np);
+  uint chunkSize = PGSIZE / 2;
+  char buffer[chunkSize];
+  int read = 0;
+  int offset = 0;
+  // copy parent's swap file to child using buffer
+  if(strncmp(curproc->name, "sh", 2) != 0 && strncmp(curproc->name, "init", 4) != 0) // we don't copy 'sh' and 'init' processes
+  {
+    while((read = readFromSwapFile(curproc, buffer, offset, chunkSize)) != 0) // there is more to read
+    {
+      if(writeToSwapFile(np, buffer, offset, read) == -1) // writing fails for some reason
+        panic("writeToSwapFile fails on fork");
+      offset += read; //advance offset by home much we read each time
+    }
+  }
+
+  //coping parent process swapped pages meta data
+  for (i = 0; i < MAX_PSYC_PAGES; i++) {
+    np->swappedPages[i].age = curproc->swappedPages[i].age;
+    np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
+    np->swappedPages[i].offset = curproc->swappedPages[i].offset;
+    np->unusedpages[i].virt_addr = curproc->unusedpages[i].virt_addr;
+    np->unusedpages[i].age = curproc->unusedpages[i].age;
+  }
+
+  np->nummemorypages = curproc->nummemorypages;
+  np->numswappages= curproc->numswappages;
+
 
   acquire(&ptable.lock);
 
@@ -241,6 +285,9 @@ exit(void)
       curproc->ofile[fd] = 0;
     }
   }
+
+  if (removeSwapFile(curproc) != 0)
+    panic("exit: error deleting swap file");
 
   begin_op();
   iput(curproc->cwd);

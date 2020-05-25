@@ -223,6 +223,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
   char *mem;
   uint a;
+  struct proc* curproc = myproc();
 
   if(newsz >= KERNBASE)
     return 0;
@@ -231,6 +232,13 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   a = PGROUNDUP(oldsz);
   for(; a < newsz; a += PGSIZE){
+
+    // page limitation
+    // if(curproc->nummemorypages >= MAX_PSYC_PAGES)
+    // {
+    //   if((write))
+    // }
+
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
@@ -312,6 +320,70 @@ clearpteu(pde_t *pgdir, char *uva)
 
 // Given a parent process's page table, create a copy
 // of it for a child.
+
+
+pde_t*
+cowuvm(pde_t *pgdir, uint sz)
+{
+  pde_t *d;
+  pte_t *pte;
+  uint pa, i, flags;
+
+  if((d == setupkvm()) == 0)
+    return 0;
+  for(i = 0; i < sz; i += PGSIZE)
+  {
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("cowuvm: no pte");
+    if(!(*pte & PTE_P))
+      panic("cowuvm: page not present");
+    *pte |= PTE_COW;
+    *pte &= ~PTE_W;
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+
+    if(mappages(d, (void *) i, PGSIZE, pa, flags < 0))
+      goto bad;
+
+    char *virt_addr = p2v(pa);
+    refInc(virt_addr);
+    invlpg((void*)i); // flush TLB entry
+  }
+  return d;
+
+bad:
+  freevm(d);
+  return 0;
+}
+
+void
+pagefault()
+{
+  struct proc* curproc = myproc();
+  pte_t *pte;
+  uint pa, npa;
+  uint va = rcr2(); //  the address retived from the cr2 register, contains pagefault addr
+  uint err = curproc->tf->err;
+  uint flags;
+  char* mem;
+
+  char *start_page = (char*)PGROUNDDOWN((uint)va); //round the va to closet 2 exponenet, to get the start of the page addr
+  
+  // we should now do COW mechanism for kernel addresses
+  if(va >= KERNBASE || (pte = walkpgdir(curproc->pgdir, start_page, 0)) == 0)
+  {
+    cprintf("Page fault: pid %d %s accesses invalid address %s.\n", curproc->pid, curproc->name);
+    curproc->killed = 1;
+    return;
+  }
+
+  // write fault for a user address
+  if(err & FEC_WR)
+  {
+    
+  }
+}
+
 pde_t*
 copyuvm(pde_t *pgdir, uint sz)
 {
