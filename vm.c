@@ -122,8 +122,11 @@ setupkvm(void)
   struct kmap *k;
 
   if((pgdir = (pde_t*)kalloc()) == 0)
+  {
     return 0;
+  }
   memset(pgdir, 0, PGSIZE);
+  cprintf("pgdir val %d\n", pgdir);
   if (P2V(PHYSTOP) > (void*)DEVSPACE)
     panic("PHYSTOP too high");
   for(k = kmap; k < &kmap[NELEM(kmap)]; k++)
@@ -132,6 +135,7 @@ setupkvm(void)
       freevm(pgdir);
       return 0;
     }
+  cprintf("pgdir val %d\n", pgdir);
   return pgdir;
 }
 
@@ -233,13 +237,15 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   a = PGROUNDUP(oldsz);
   for(; a < newsz; a += PGSIZE){
 
+    curproc->nummemorypages++;
     // page limitation
     // if(curproc->nummemorypages >= MAX_PSYC_PAGES)
     // {
-    //   if((write))
+    //   // swap some page to memory (task 3)
     // }
 
     mem = kalloc();
+    
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
       deallocuvm(pgdir, newsz, oldsz);
@@ -263,6 +269,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 int
 deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
+  struct proc *curproc = myproc();
   pte_t *pte;
   uint a, pa;
 
@@ -279,7 +286,14 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       if(pa == 0)
         panic("kfree");
       char *v = P2V(pa);
-      kfree(v);
+      
+      curproc->nummemorypages--;
+
+      if(getRefs(v) == 1)
+        kfree(v);
+      else
+        refDec(v);
+
       *pte = 0;
     }
   }
@@ -325,12 +339,14 @@ clearpteu(pde_t *pgdir, char *uva)
 pde_t*
 cowuvm(pde_t *pgdir, uint sz)
 {
-  pde_t *d;
+  pde_t *d = 0;
   pte_t *pte;
   uint pa, i, flags;
 
-  if((d == setupkvm()) == 0)
+  if((d = setupkvm()) == 0)
+  {
     return 0;
+  }
   for(i = 0; i < sz; i += PGSIZE)
   {
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
@@ -341,11 +357,10 @@ cowuvm(pde_t *pgdir, uint sz)
     *pte &= ~PTE_W;
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-
     if(mappages(d, (void *) i, PGSIZE, pa, flags < 0))
       goto bad;
 
-    char *virt_addr = p2v(pa);
+    char *virt_addr = P2V(pa);
     refInc(virt_addr);
     invlpg((void*)i); // flush TLB entry
   }
@@ -359,13 +374,14 @@ bad:
 void
 pagefault()
 {
+  cprintf("PAGEFAULT!!!!\n");
   struct proc* curproc = myproc();
   pte_t *pte;
-  uint pa, npa;
-  uint va = rcr2(); //  the address retived from the cr2 register, contains pagefault addr
+  uint pa, new_pa;
+  uint va = rcr2(); //  the address retreived from the cr2 register, contains pagefault addr
   uint err = curproc->tf->err;
   uint flags;
-  char* mem;
+  char* new_page;
 
   char *start_page = (char*)PGROUNDDOWN((uint)va); //round the va to closet 2 exponenet, to get the start of the page addr
   
@@ -377,10 +393,47 @@ pagefault()
     return;
   }
 
-  // write fault for a user address
+  // checking that page fault caused by write
   if(err & FEC_WR)
   {
-    
+    // if the page of this address not includes the PTE_COW flag, kill the process
+    if(!(*pte & PTE_COW)) 
+    {
+      curproc->killed = 1;
+      return;
+    }
+    else
+    {
+      int ref_count;
+      pa = PTE_ADDR(*pte);
+      char *va = P2V(pa);
+      flags = PTE_FLAGS(*pte);
+
+      // get how much processes share this page (i.e referece count)
+      ref_count = getRefs(va);
+
+      if (ref_count > 1) // more than one reference
+      {
+        new_page = kalloc();
+        curproc->nummemorypages++;
+        memmove(new_page, va, PGSIZE); // copy the faulty page to the newly allocated one
+        new_pa = V2P(new_page);
+        *pte = new_pa | flags | PTE_P | PTE_W; // make pte point to new page, turning the required bits ON
+        invlpg((void*)va); // refresh TLB
+        refDec(va); // decrement old page's ref count
+      }
+      else // ref_count = 1
+      {
+        *pte |= PTE_W;    // make it writeable
+        *pte &= ~PTE_COW; // turn COW off
+      }
+    }
+  }
+
+  else // pagefault is not write fault
+  {
+    curproc->killed = 1;
+    return;
   }
 }
 

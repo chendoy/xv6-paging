@@ -195,7 +195,7 @@ growproc(int n)
 // Caller must set state of returned proc to RUNNABLE.
 int
 fork(void)
-{
+{ 
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
@@ -206,7 +206,7 @@ fork(void)
   }
 
   // Copy process state from proc.
-  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
+  if((np->pgdir = cowuvm(curproc->pgdir, curproc->sz)) == 0){
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;
@@ -578,4 +578,22 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+getTotalFreePages(void)
+{
+  struct proc *p;
+  int sum = 0;
+  int pcount = 0;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->state == UNUSED)
+      continue;
+    sum += MAX_PSYC_PAGES - p->nummemorypages;
+    pcount++;
+  }
+  release(&ptable.lock);
+  return sum;
 }

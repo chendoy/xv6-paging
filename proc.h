@@ -71,7 +71,8 @@ struct proc {
   struct page swappedPages [MAX_PSYC_PAGES];  // Swapped pages of this process
   struct unusedpage unusedpages [MAX_PSYC_PAGES];
   struct unusedpage *head_unused;  // head of the unused pages linked list, allways be the next page to use
-  struct freepg *tail_unused; // the tail of the unused pages linked list. allways be the last page to use
+  struct unusedpage *tail_unused;   // the tail of the unused pages linked list. allways be the last page to use
+
 };
 
 // Process memory is laid out contiguously, low addresses first:

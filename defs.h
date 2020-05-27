@@ -62,6 +62,14 @@ int				removeSwapFile(struct proc* p);
 struct inode*	create(char *path, short type, short major, short minor);
 int				isdirempty(struct inode *dp);
 
+// kalloc.c
+char*           kalloc(void);
+void            kfree(char*);
+void            kfree_nocheck(char*);
+void            refInc(char*);
+void            refDec(char*);
+int 			getRefs(char*);
+
 
 // ide.c
 void            ideinit(void);
@@ -130,6 +138,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             getTotalFreePages(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -191,6 +200,7 @@ void            freevm(pde_t*);
 void            inituvm(pde_t*, char*, uint);
 int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
 pde_t*          copyuvm(pde_t*, uint);
+pde_t*          cowuvm(pde_t*, uint);
 void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);

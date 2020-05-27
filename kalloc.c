@@ -22,6 +22,7 @@ struct {
   struct spinlock lock;
   int use_lock;
   struct run *freelist;
+  struct run runs[MAXPAGES]; // pages allocated now (?)
 } kmem;
 
 // Initialization happens in two phases.
@@ -50,7 +51,7 @@ freerange(void *vstart, void *vend)
   char *p;
   p = (char*)PGROUNDUP((uint)vstart);
   for(; p + PGSIZE <= (char*)vend; p += PGSIZE)
-    kfree(p);
+    kfree_nocheck(p);
 }
 //PAGEBREAK: 21
 // Free the page of physical memory pointed at by v,
@@ -68,10 +69,42 @@ kfree(char *v)
   // Fill with junk to catch dangling refs.
   memset(v, 1, PGSIZE);
 
-  if(kmem.use_lock)
+  if(kmem.use_lock) 
     acquire(&kmem.lock);
-  r = (struct run*)v;
+  
+  
+  r = &kmem.runs[(V2P(v) / PGSIZE)]; // get the page
+
+  if(r->refcount != 1)
+    panic("kfree: freeing a shared page");
+  
+
   r->next = kmem.freelist;
+  r->refcount = 0;
+  kmem.freelist = r;
+  if(kmem.use_lock)
+    release(&kmem.lock);
+}
+
+void
+kfree_nocheck(char *v)
+{
+  struct run *r;
+
+  if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
+    panic("kfree");
+
+  // Fill with junk to catch dangling refs.
+  memset(v, 1, PGSIZE);
+
+  if(kmem.use_lock) 
+    acquire(&kmem.lock);
+  
+  
+  r = &kmem.runs[(V2P(v) / PGSIZE)]; // get the page
+
+  r->next = kmem.freelist;
+  r->refcount = 0;
   kmem.freelist = r;
   if(kmem.use_lock)
     release(&kmem.lock);
@@ -84,48 +117,55 @@ char*
 kalloc(void)
 {
   struct run *r;
+  char *rv;
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
   if(r)
+  {
     kmem.freelist = r->next;
+    r->refcount = 1;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
-  return (char*)r;
+
+
+  rv = r ? P2V((r - kmem.runs) * PGSIZE) : r;
+  return rv;
 }
 
-// void
-// refDec(char *v)
-// {
-//   struct run *r;
+void
+refDec(char *v)
+{
+  struct run *r;
 
-//   if(kmem.use_lock)
-//     acquire(&kmem.lock);
-//   r = &kmem.runs[(V2P(v) / PGSIZE)];
-//   r->ref += 1;
-//   if(kmem.use_lock)
-//     release(&kmem.lock);
-// }
+  if(kmem.use_lock)
+    acquire(&kmem.lock);
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
+  r->refcount += 1;
+  if(kmem.use_lock)
+    release(&kmem.lock);
+}
 
-// void
-// refInc(char *v)
-// {
-//   struct run *r;
+void
+refInc(char *v)
+{
+  struct run *r;
 
-//   if(kmem.use_lock)
-//     acquire(&kmem.lock);
-//   r = &kmem.runs[(V2P(v) / PGSIZE)];
-//   r->ref -= 1;
-//   if(kmem.use_lock)
-//     release(&kmem.lock);
-// }
+  if(kmem.use_lock)
+    acquire(&kmem.lock);
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
+  r->refcount -= 1;
+  if(kmem.use_lock)
+    release(&kmem.lock);
+}
 
-// int
-// getRefs(char *v)
-// {
-//   struct run *r;
+int
+getRefs(char *v)
+{
+  struct run *r;
 
-//   r = &kmem.runs[(V2P(v) / PGSIZE)];
-//   return r->ref;
-// }
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
+  return r->refcount;
+}

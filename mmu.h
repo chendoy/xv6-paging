@@ -99,7 +99,7 @@ struct segdesc {
 // Page fault error codes
 #define FEC_PR		0x00000001	// Page fault caused by protection violation
 #define FEC_WR		0x00000002	// Page fault caused by a write
-#define FEC_U		0x00000004	// Page fault occured while in user mode
+#define FEC_U		  0x00000004	// Page fault occured while in user mode
 
 // COW implementation
 #define PTE_COW 0x800
