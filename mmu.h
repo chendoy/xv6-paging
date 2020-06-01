@@ -102,7 +102,7 @@ struct segdesc {
 #define FEC_U		  0x00000004	// Page fault occured while in user mode
 
 // COW implementation
-#define PTE_COW 0x800
+#define PTE_COW 0x400
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte)   ((uint)(pte) & ~0xFFF)

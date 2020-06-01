@@ -63,7 +63,7 @@ kfree(char *v)
 {
   struct run *r;
 
-  if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
+  if((uint)v % PGSIZE || v < end || v2p(v) >= PHYSTOP)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
@@ -91,7 +91,7 @@ kfree_nocheck(char *v)
 {
   struct run *r;
 
-  if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
+  if((uint)v % PGSIZE || v < end || v2p(v) >= PHYSTOP)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
@@ -129,8 +129,6 @@ kalloc(void)
   }
   if(kmem.use_lock)
     release(&kmem.lock);
-
-
   rv = r ? P2V((r - kmem.runs) * PGSIZE) : r;
   return rv;
 }
@@ -143,7 +141,7 @@ refDec(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = &kmem.runs[(V2P(v) / PGSIZE)];
-  r->refcount += 1;
+  r->refcount -= 1;
   if(kmem.use_lock)
     release(&kmem.lock);
 }
@@ -156,7 +154,7 @@ refInc(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = &kmem.runs[(V2P(v) / PGSIZE)];
-  r->refcount -= 1;
+  r->refcount += 1;
   if(kmem.use_lock)
     release(&kmem.lock);
 }

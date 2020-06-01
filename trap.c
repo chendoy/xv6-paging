@@ -36,12 +36,22 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
+
+  struct proc* curproc = myproc();
   if(tf->trapno == T_SYSCALL){
-    if(myproc()->killed)
+    if(curproc->killed)
       exit();
-    myproc()->tf = tf;
+    curproc->tf = tf;
     syscall();
     if(myproc()->killed)
+      exit();
+    return;
+  }
+
+    if (tf->trapno == T_PGFLT) {
+    curproc->tf = tf;
+    pagefault();
+    if(curproc->killed)
       exit();
     return;
   }

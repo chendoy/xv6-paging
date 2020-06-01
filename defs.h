@@ -183,6 +183,7 @@ void            idtinit(void);
 extern uint     ticks;
 void            tvinit(void);
 extern struct spinlock tickslock;
+void pagefault();
 
 // uart.c
 void            uartinit(void);

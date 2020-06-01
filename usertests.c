@@ -560,6 +560,7 @@ fourfiles(void)
     fd = open(fname, 0);
     total = 0;
     while((n = read(fd, buf, sizeof(buf))) > 0){
+      printf(1, "bytes read: %d\n", n);
       for(j = 0; j < n; j++){
         if(buf[j] != '0'+i){
           printf(1, "wrong char\n");
@@ -1760,7 +1761,7 @@ main(int argc, char *argv[])
   createdelete();
   linkunlink();
   concreate();
-  fourfiles();
+  fourfiles(); // 011701 did not pass
   sharedfd();
 
   bigargtest();
@@ -1771,7 +1772,7 @@ main(int argc, char *argv[])
   validatetest();
 
   opentest();
-  writetest();
+  writetest();  // 011701 did not pass
   writetest1();
   createtest();
 
@@ -1792,8 +1793,8 @@ main(int argc, char *argv[])
   unlinkread();
   dirfile();
   iref();
-  forktest();
-  bigdir(); // slow
+  forktest();  // 011701 did not pass
+  bigdir();
 
   uio();
 
