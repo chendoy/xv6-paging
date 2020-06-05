@@ -12,6 +12,8 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+static char buffer[PGSIZE];
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -128,6 +130,15 @@ found:
   // p->head_unused = 0;
   // p->tail_unused = 0;
 
+  if(p->pid > 2) {
+    if(createSwapFile(p) != 0)
+      panic("allocproc: createSwapFile");
+  }
+
+  p->num_ram = 0;
+  p->num_swap = 0;
+  memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
+  memset(p->swappedPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
   return p;
 }
 
@@ -204,8 +215,14 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-  // Copy process state from proc.
-  if((np->pgdir = cowuvm(curproc->pgdir, curproc->sz)) == 0){
+
+  if(curproc->pid <= 2) // init, shell
+    np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
+  else // other processes
+    np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
+  
+
+  if(np->pgdir == 0){
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;
@@ -214,6 +231,38 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+
+  if(curproc->pid > 2) // not init or shell
+  {
+    int i;
+    for(i = 0; i < MAX_PSYC_PAGES; i++)
+    {
+      if(curproc->ramPages[i].isused)
+      {
+        np->ramPages[i].isused = 1;
+        np->ramPages[i].virt_addr = curproc->ramPages[i].virt_addr;
+        np->ramPages[i].pgdir = np->pgdir;
+      }
+
+    for(i = 0; i < MAX_PSYC_PAGES; i++)
+    {
+      if(curproc->swappedPages[i].isused)
+      {
+        np->swappedPages[i].isused = 1;
+        np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
+        np->swappedPages[i].pgdir = np->pgdir;
+        np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
+      
+      if(readFromSwapFile((void*)curproc, buffer, np->swappedPages[i].swap_offset, PGSIZE) < 0)
+        panic("fork: readFromSwapFile");
+        
+      if(writeToSwapFile((void*)np, buffer, np->swappedPages[i].swap_offset, PGSIZE) < 0)
+        panic("fork: writeToSwapFile");
+
+      }
+    }
+  }
+}
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -224,33 +273,7 @@ fork(void)
   np->cwd = idup(curproc->cwd);
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
   pid = np->pid;
-  // createSwapFile(np);
-  // uint chunkSize = PGSIZE / 2;
-  // char buffer[chunkSize];
-  // int read = 0;
-  // int offset = 0;
-  // copy parent's swap file to child using buffer
-  // if(strncmp(curproc->name, "sh", 2) != 0 && strncmp(curproc->name, "init", 4) != 0) // we don't copy 'sh' and 'init' processes
-  // {
-  //   while((read = readFromSwapFile(curproc, buffer, offset, chunkSize)) != 0) // there is more to read
-  //   {
-  //     if(writeToSwapFile(np, buffer, offset, read) == -1) // writing fails for some reason
-  //       panic("writeToSwapFile fails on fork");
-  //     offset += read; //advance offset by home much we read each time
-  //   }
-  // }
 
-  // //coping parent process swapped pages meta data
-  // for (i = 0; i < MAX_PSYC_PAGES; i++) {
-  //   np->swappedPages[i].age = curproc->swappedPages[i].age;
-  //   np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
-  //   np->swappedPages[i].offset = curproc->swappedPages[i].offset;
-  //   np->unusedpages[i].virt_addr = curproc->unusedpages[i].virt_addr;
-  //   np->unusedpages[i].age = curproc->unusedpages[i].age;
-  // }
-
-  // np->nummemorypages = curproc->nummemorypages;
-  // np->numswappages= curproc->numswappages;
 
   
   acquire(&ptable.lock);
@@ -269,6 +292,11 @@ exit(void)
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
+
+  if(curproc-> pid > 2)
+  {
+    removeSwapFile(curproc);
+  }
 
   if(curproc == initproc)
     panic("init exiting");
@@ -336,6 +364,8 @@ wait(void)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
+        memset(p->ramPages, 0, sizeof(p->ramPages));
+        memset(p->swappedPages, 0, sizeof(p->swappedPages));
         p->state = UNUSED;
         release(&ptable.lock);
         return pid;
@@ -371,20 +401,17 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
-
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
-
       swtch(&(c->scheduler), p->context);
       switchkvm();
 
@@ -586,7 +613,7 @@ getTotalFreePages(void)
   {
     if(p->state == UNUSED)
       continue;
-    sum += MAX_PSYC_PAGES - p->nummemorypages;
+    // sum += MAX_PSYC_PAGES - p->nummemorypages;
     pcount++;
   }
   release(&ptable.lock);

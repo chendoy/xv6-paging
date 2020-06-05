@@ -9,6 +9,7 @@
 
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
+static char buffer[PGSIZE];
 
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
@@ -225,7 +226,8 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
   char *mem;
   uint a;
-  // struct proc* curproc = myproc();
+  struct proc* curproc = myproc();
+  // uint pa;
 
   if(newsz >= KERNBASE)
     return 0;
@@ -235,29 +237,88 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   a = PGROUNDUP(oldsz);
   for(; a < newsz; a += PGSIZE){
 
-    // curproc->nummemorypages++;
-    // page limitation
-    // if(curproc->nummemorypages >= MAX_PSYC_PAGES)
-    // {
-    //   // swap some page to memory (task 3)
-    // }
-
     mem = kalloc();
-    
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
       deallocuvm(pgdir, newsz, oldsz);
       return 0;
     }
-    memset(mem, 0, PGSIZE);
-    if(mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_W|PTE_U) < 0){
-      cprintf("allocuvm out of memory (2)\n");
-      deallocuvm(pgdir, newsz, oldsz);
-      kfree(mem);
-      return 0;
+    if(curproc->pid <= 2) // init or shell
+    {
+        memset(mem, 0, PGSIZE);
+        if(mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_W|PTE_U) < 0){
+          cprintf("allocuvm out of memory (2)\n");
+          deallocuvm(pgdir, newsz, oldsz);
+          kfree(mem);
+          return 0;
+        }
+    }
+    else // not init or shell
+    {
+      memset(mem, 0, PGSIZE);
+      if(mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_W|PTE_U) < 0){
+        cprintf("allocuvm out of memory (2)\n");
+        deallocuvm(pgdir, newsz, oldsz);
+        kfree(mem);
+        return 0;
+      }
+
+      if(curproc->num_ram < MAX_PSYC_PAGES) // there is space in RAM
+      {
+          int new_index = getNextFreeRamIndex();
+          struct page *newpage = &curproc->ramPages[new_index];
+
+          newpage->isused = 1;
+          newpage->pgdir = pgdir;
+          newpage->swap_offset = new_index * PGSIZE;
+          newpage->virt_addr = (char*)a;
+
+          curproc->num_ram++;  
+      }
+
+      else // no space in RAM for this new page, will swap
+      {
+        // get info of the page to be evicted
+        uint evicted_ind = indexToSwap();
+        struct page evicted_page = curproc->ramPages[evicted_ind];
+        char* evicted_va = evicted_page.virt_addr;
+        pde_t *evicted_pgdir = curproc->ramPages[evicted_ind].pgdir;
+        pde_t *evicted_ram_pte = walkpgdir(evicted_pgdir, evicted_va, 0);
+        void* evicted_pa = (void*) PTE_ADDR(evicted_ram_pte);
+
+        // saving the evicted file content to swap file               
+        memmove((void*)buffer, evicted_pa, PGSIZE);//backup content to buffer    
+        writeToSwapFile(curproc, buffer, evicted_page.swap_offset, PGSIZE);
+        
+        // moving the page struct from ram arr to next free swap arr idx
+        void *src = (void*)&curproc->ramPages[evicted_ind];
+        void *dest = (void*)&curproc->swappedPages[curproc->num_swap];
+        memmove(dest, src, sizeof(struct page));   // ramPages[i] = swappedPages[i]
+        curproc->num_swap ++;
+
+        // free the pyschial memory of the evicted addr
+        kfree(P2V(evicted_pa));
+
+        *evicted_ram_pte |= PTE_PG; // evicted was indeed evicted to secondary storage
+        *evicted_ram_pte &= ~PTE_P; // evicted is not present anymore
+
+        lcr3(V2P(curproc->pgdir)); // flush TLB
+
+        struct page *newpage = &curproc->ramPages[evicted_ind];
+        newpage->isused = 1;
+        newpage->pgdir = pgdir;
+        newpage->swap_offset = evicted_ind * PGSIZE;
+        newpage->virt_addr = (char*)a;
+      }
     }
   }
   return newsz;
+}
+
+uint indexToSwap()
+{
+  // fow now we allways return index 0
+  return 0;
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -270,6 +331,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   // struct proc *curproc = myproc();
   pte_t *pte;
   uint a, pa;
+  struct proc* curproc = myproc();
 
   if(newsz >= oldsz)
     return oldsz;
@@ -285,13 +347,32 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = p2v(pa);
       
-      // curproc->nummemorypages--;
-
       if(getRefs(v) == 1)
         kfree(v);
       else
         refDec(v);
 
+      if(curproc->pid >2)
+      {
+          // remove page a from current proc RAM pages and swap pages
+        int i;
+        for(i = 0; i < MAX_PSYC_PAGES; i++)
+        {
+          struct page p_ram = curproc->ramPages[i];
+          struct page p_swap = curproc->swappedPages[i];
+          if((uint)p_ram.virt_addr == a && p_ram.pgdir == pgdir)
+          {
+            memset((void*)&p_ram, 0, sizeof(struct page)); // zero that page struct
+          }
+
+          if((uint)p_swap.virt_addr == a && p_swap.pgdir == pgdir)
+          {
+            memset((void*)&p_swap, 0, sizeof(struct page)); // zero that page struct
+          }
+        }
+
+      }
+     
       *pte = 0;
     }
   }
@@ -368,9 +449,23 @@ bad:
   return 0;
 }
 
+int 
+getSwappedPageIndex(char* va)
+{
+  struct proc* curproc = myproc();
+  int i;
+  for(i = 0; i < MAX_PSYC_PAGES; i++)
+  {
+    if(curproc->swappedPages[i].virt_addr == va)
+      return i;
+  }
+  return -1;
+}
+
 void
 pagefault()
 {
+  cprintf("PAGEFAULT!\n");
   struct proc* curproc = myproc();
   pte_t *pte;
   uint pa, new_pa;
@@ -378,16 +473,90 @@ pagefault()
   uint err = curproc->tf->err;
   uint flags;
   char* new_page;
+  void* ramPa;
 
   char *start_page = (char*)PGROUNDDOWN((uint)va); //round the va to closet 2 exponenet, to get the start of the page addr
   
   // we should now do COW mechanism for kernel addresses
   if(va >= KERNBASE || (pte = walkpgdir(curproc->pgdir, start_page, 0)) == 0)
   {
-    cprintf("Page fault: pid %d %s accesses invalid address %s.\n", curproc->pid, curproc->name);
+    cprintf("Page fault: pid %d (%s) accesses invalid address.\n", curproc->pid, curproc->name);
     curproc->killed = 1;
     return;
   }
+
+  if(*pte & PTE_PG) // page was paged out
+  {
+    new_page = kalloc();
+    if(curproc->num_ram < MAX_PSYC_PAGES) // there is sapce in proc RAM
+    {
+      pte_t *pte = walkpgdir(curproc->pgdir, start_page, 0);
+      *pte |= PTE_P | PTE_W | PTE_U;
+      *pte &= ~PTE_PG;
+      *pte |= (uint)new_page;
+      int index = getSwappedPageIndex(start_page);
+      readFromSwapFile(curproc, buffer, index * PGSIZE, PGSIZE);
+
+      int new_indx = getNextFreeRamIndex();
+      void *dst = (void*)&curproc->ramPages[new_indx];
+      const void *src = (void*)&curproc->swappedPages[index];
+      memmove(dst, src, sizeof(struct page)); // for arrays in proc struct
+      curproc->ramPages[new_indx].swap_offset = new_indx * PGSIZE; //change the swap offset by the new index
+
+
+      memmove((void*)new_page, buffer, PGSIZE); // copy content from swap file to new page
+      
+      curproc->num_swap--;
+    }
+    else // no sapce in proc RAM
+    {
+      int index_to_evicet = indexToSwap();
+      pte_t *pte = walkpgdir(curproc->pgdir, start_page, 0);              // pte of faulty page
+      *pte |= PTE_P | PTE_W | PTE_U;                                      // the fauly page pte now
+      *pte &= ~PTE_PG;                                                    //  now points to a newly allocated page
+      *pte |= (uint)new_page;                                             //  returned from kalloc()
+
+      
+      int index = getSwappedPageIndex(start_page);                        // get the index of the fauly page from swapped pages array
+      readFromSwapFile(curproc, buffer, index * PGSIZE, PGSIZE);          // buffer now has bytes from swapped page (faulty one)
+      
+      // get the pyshcial addr of the old ram page file
+      char *old_ram_va = curproc->ramPages[index_to_evicet].virt_addr;
+      pde_t *old_ram_pgdir = curproc->ramPages[index_to_evicet].pgdir;
+      pte_t *old_ram_pte = walkpgdir(old_ram_pgdir, old_ram_va, 0);
+      ramPa = (void*)PTE_ADDR(old_ram_pte);
+      
+      // prepare to-be-swapped page in RAM to move to swap file
+      *old_ram_pte |= PTE_PG;                                             // turn "paged-out" flag on
+      *old_ram_pte &= ~PTE_P;                                             // turn "present" flag off
+
+
+      const void* src;
+      void *dst;
+
+      struct page temp;
+      src = (void*)&curproc->ramPages[index_to_evicet];
+      memmove(&temp, src, sizeof(struct page));                           // temp = ramPages[i]
+
+      dst = (void*)&curproc->ramPages[index_to_evicet];
+      src = (void*)&curproc->swappedPages[index];
+      memmove(dst, src, sizeof(struct page));                             // ramPages[i] = swappedPages[i]
+
+      dst = (void*)&curproc->ramPages[index_to_evicet];
+      memmove(dst, &temp, sizeof(struct page));                           // swappedPages[i] = temp
+
+      curproc->ramPages[index_to_evicet].swap_offset = index_to_evicet * PGSIZE;
+
+      memmove((void*)new_page, buffer, PGSIZE);                           // the memory actually move from swap file to the new page
+
+      memmove((void*)buffer, ramPa, PGSIZE);
+      writeToSwapFile(curproc, buffer, index_to_evicet * PGSIZE, PGSIZE); // finally, write evicted page bytes from RAM to swpa file
+
+      kfree(P2V(ramPa));
+      lcr3(V2P(curproc->pgdir));                                          // refresh TLB
+    }
+    return;
+  } 
 
   // checking that page fault caused by write
   if(err & FEC_WR)
@@ -411,7 +580,7 @@ pagefault()
       if (ref_count > 1) // more than one reference
       {
         new_page = kalloc();
-        curproc->nummemorypages++;
+        //curproc->nummemorypages++;
         memmove(new_page, virt_addr, PGSIZE); // copy the faulty page to the newly allocated one
         new_pa = v2p(new_page);
         *pte = new_pa | flags | PTE_P | PTE_W; // make pte point to new page, turning the required bits ON
@@ -422,6 +591,7 @@ pagefault()
       {
         *pte |= PTE_W;    // make it writeable
         *pte &= ~PTE_COW; // turn COW off
+        invlpg((void *)va); // refresh TLB
       }
     }
   }
@@ -450,6 +620,12 @@ copyuvm(pde_t *pgdir, uint sz)
       panic("copyuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
+    if(*pte & PTE_PG)
+    {
+      if(mappages(d, (void*)i, PGSIZE, 0, flags) < 0)
+        panic("copyuvm: mappages failed");
+      continue;
+    }
     if((mem = kalloc()) == 0)
       goto bad;
     memmove(mem, (char*)p2v(pa), PGSIZE);
@@ -506,6 +682,18 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
   return 0;
 }
 
+int
+getNextFreeRamIndex()
+{ 
+  int i;
+  struct proc * currproc = myproc();
+  for(i = 0; i < MAX_PSYC_PAGES ; i++)
+  {
+    if(((struct page)currproc->ramPages[i]).isused != 0)
+      return i;
+  }
+  return -1;
+}
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!

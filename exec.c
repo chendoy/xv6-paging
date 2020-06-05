@@ -93,16 +93,22 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
+  int ind;
+  for(ind = 0; ind < MAX_PSYC_PAGES; ind++)
+  {
+    if(curproc->ramPages[ind].isused)
+      curproc->ramPages[ind].pgdir = pgdir;
+
+    if(curproc->swappedPages[ind].isused)
+      curproc->swappedPages[ind].pgdir = pgdir;
+  }
+
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
   curproc->pgdir = pgdir;
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
-
-  // creating a new swap file for the current process
-  removeSwapFile(curproc); 
-  createSwapFile(curproc);
 
   switchuvm(curproc);
   freevm(oldpgdir);

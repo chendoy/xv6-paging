@@ -51,6 +51,6 @@ int test_2()
 int main()
 {
     // test_1();
-    test_2();
+    test_1();
     exit();
 }

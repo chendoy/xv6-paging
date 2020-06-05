@@ -33,18 +33,19 @@ struct context {
 };
 
 struct page {
-  uint offset;
-  int age;
+  pde_t* pgdir;   
+  int isused;
   char *virt_addr;
+  int swap_offset;
 };
 
 // page that avilable to process but no used yet
-struct unusedpage {
-  char *virt_addr;
-  int age;
-  struct unusedpage *next; // the next avilable not used page
-  struct unusedpage *prev; // the prev avilabe not used page
-};
+// struct unusedpage {
+//   char *virt_addr;
+//   int age;
+//   struct unusedpage *next; // the next avilable not used page
+//   struct unusedpage *prev; // the prev avilabe not used page
+// };
 
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
@@ -69,9 +70,11 @@ struct proc {
   uint nummemorypages;         // number of pages in process memory (without kernel pages)
   uint numswappages;           // num of pages reside in the swap file
   struct page swappedPages [MAX_PSYC_PAGES];  // Swapped pages of this process
-  struct unusedpage unusedpages [MAX_PSYC_PAGES];
-  struct unusedpage *head_unused;  // head of the unused pages linked list, allways be the next page to use
-  struct unusedpage *tail_unused;   // the tail of the unused pages linked list. allways be the last page to use
+  struct page ramPages [MAX_PSYC_PAGES];
+  int num_ram;
+  int num_swap;
+  // struct unusedpage *head_unused;  // head of the unused pages linked list, allways be the next page to use
+  // struct unusedpage *tail_unused;   // the tail of the unused pages linked list. allways be the last page to use
 
 };
 
