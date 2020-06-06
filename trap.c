@@ -48,18 +48,17 @@ trap(struct trapframe *tf)
     return;
   }
 
-    if (tf->trapno == T_PGFLT) {
-      if(myproc()->pid > 2) {
-        // cprintf("pid %d (%s) had pagefult\n", myproc()->pid ,myproc()->name);
-        curproc->tf = tf;
-        pagefault();
-        if(curproc->killed)
-          exit();
-        return;
-      }
-  }
-
   switch(tf->trapno){
+  case T_PGFLT:
+    if(myproc()->pid > 2) 
+    {
+    pagefault();
+    // if(curproc->killed) {
+    //   cprintf("going to kill proc\n");
+    //   exit();
+    // }
+    }
+    break;
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);

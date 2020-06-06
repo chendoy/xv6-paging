@@ -2,6 +2,8 @@
 #include "stat.h"
 #include "user.h"
 
+char buf[7 * 4096];
+
 void simple_printf_test()
 {
    printf(1, "sanity test!\n");
@@ -34,20 +36,16 @@ void simple_fork_test()
     }
 }
 
-void pagefult_test()
+void pagefault_test()
 {
-    // char buf[512];
-    // memset(buf,0, 512);
-    // printf(1,"buf[0] = %d\n", buf[0]);
-
-    char buf[30 * 4096];
-    memset(buf,0, 30 * 4096);
-    printf(1,"buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[4096*15], buf[4096*30 - 1]);
+    memset(buf, 'a', 7 * 4096);
+    printf(1, "buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[4 * 4096 - 1], buf[7 * 4096 - 1]);
+    return;
 }
 
 int
 main()
 {
-    pagefult_test();
+    pagefault_test();
     exit();
 }

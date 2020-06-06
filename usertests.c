@@ -1761,18 +1761,18 @@ main(int argc, char *argv[])
   createdelete();
   linkunlink();
   concreate();
-  fourfiles(); // 011701 did not pass
+  fourfiles();
   sharedfd();
 
   bigargtest();
   bigwrite();
   bigargtest();
   bsstest();
-  sbrktest();
+  // sbrktest(); task1
   validatetest();
 
   opentest();
-  writetest();  // 011701 did not pass
+  writetest();
   writetest1();
   createtest();
 
@@ -1780,7 +1780,7 @@ main(int argc, char *argv[])
   exitiputtest();
   iputtest();
 
-  mem();
+  // mem(); task1
   pipe1();
   preempt();
   exitwait();
@@ -1793,7 +1793,7 @@ main(int argc, char *argv[])
   unlinkread();
   dirfile();
   iref();
-  forktest();  // 011701 did not pass
+  forktest();  
   bigdir();
 
   uio();
