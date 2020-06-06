@@ -114,31 +114,16 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
-  // // init page data, initiaing the swapped pages and the unused pages
-  // for (int i = 0; i < MAX_PSYC_PAGES; i++) {
-  //   p->swappedPages[i].virt_addr = (char*)0xffffffff;
-  //   p->unusedpages[i].virt_addr = (char*)0xffffffff;
-  //   p->swappedPages[i].age = 0;
-  //   p->unusedpages[i].age = 0;
-  //   p->swappedPages[i].offset = 0;
-  //   p->unusedpages[i].next = 0;
-  //   p->unusedpages[i].prev = 0;
-  // }
-
-  // p->nummemorypages = 0;
-  // p->numswappages = 0;
-  // p->head_unused = 0;
-  // p->tail_unused = 0;
-
   if(p->pid > 2) {
     if(createSwapFile(p) != 0)
       panic("allocproc: createSwapFile");
+    p->num_ram = 0;
+    p->num_swap = 0;
+    memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
+    memset(p->swappedPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
   }
 
-  p->num_ram = 0;
-  p->num_swap = 0;
-  memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
-  memset(p->swappedPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
+
   return p;
 }
 
@@ -248,11 +233,11 @@ fork(void)
     {
       if(curproc->swappedPages[i].isused)
       {
-        np->swappedPages[i].isused = 1;
-        np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
-        np->swappedPages[i].pgdir = np->pgdir;
-        np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
-      
+      np->swappedPages[i].isused = 1;
+      np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
+      np->swappedPages[i].pgdir = np->pgdir;
+      np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
+        
       if(readFromSwapFile((void*)curproc, buffer, np->swappedPages[i].swap_offset, PGSIZE) < 0)
         panic("fork: readFromSwapFile");
         

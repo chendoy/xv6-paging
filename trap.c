@@ -49,11 +49,14 @@ trap(struct trapframe *tf)
   }
 
     if (tf->trapno == T_PGFLT) {
-    curproc->tf = tf;
-    pagefault();
-    if(curproc->killed)
-      exit();
-    return;
+      if(myproc()->pid > 2) {
+        // cprintf("pid %d (%s) had pagefult\n", myproc()->pid ,myproc()->name);
+        curproc->tf = tf;
+        pagefault();
+        if(curproc->killed)
+          exit();
+        return;
+      }
   }
 
   switch(tf->trapno){
