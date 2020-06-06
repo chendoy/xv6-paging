@@ -20,11 +20,11 @@ main()
    e:	83 ec 04             	sub    $0x4,%esp
     pagefault_test();
   11:	e8 9a 00 00 00       	call   b0 <pagefault_test>
-    exit();
-  16:	e8 37 03 00 00       	call   352 <exit>
-  1b:	66 90                	xchg   %ax,%ax
-  1d:	66 90                	xchg   %ax,%ax
-  1f:	90                   	nop
+  16:	66 90                	xchg   %ax,%ax
+  18:	66 90                	xchg   %ax,%ax
+  1a:	66 90                	xchg   %ax,%ax
+  1c:	66 90                	xchg   %ax,%ax
+  1e:	66 90                	xchg   %ax,%ax
 
 00000020 <simple_printf_test>:
 {
@@ -116,18 +116,15 @@ main()
   e1:	68 5c 08 00 00       	push   $0x85c
   e6:	6a 01                	push   $0x1
   e8:	e8 c3 03 00 00       	call   4b0 <printf>
-    return;
+    exit();
   ed:	83 c4 20             	add    $0x20,%esp
-}
-  f0:	c9                   	leave  
-  f1:	c3                   	ret    
-  f2:	66 90                	xchg   %ax,%ax
-  f4:	66 90                	xchg   %ax,%ax
-  f6:	66 90                	xchg   %ax,%ax
-  f8:	66 90                	xchg   %ax,%ax
-  fa:	66 90                	xchg   %ax,%ax
-  fc:	66 90                	xchg   %ax,%ax
-  fe:	66 90                	xchg   %ax,%ax
+  f0:	e8 5d 02 00 00       	call   352 <exit>
+  f5:	66 90                	xchg   %ax,%ax
+  f7:	66 90                	xchg   %ax,%ax
+  f9:	66 90                	xchg   %ax,%ax
+  fb:	66 90                	xchg   %ax,%ax
+  fd:	66 90                	xchg   %ax,%ax
+  ff:	90                   	nop
 
 00000100 <strcpy>:
 #include "user.h"

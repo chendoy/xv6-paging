@@ -36,7 +36,7 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
-
+  // cprintf("at trap");
   struct proc* curproc = myproc();
   if(tf->trapno == T_SYSCALL){
     if(curproc->killed)
@@ -53,10 +53,10 @@ trap(struct trapframe *tf)
     if(myproc()->pid > 2) 
     {
     pagefault();
-    // if(curproc->killed) {
-    //   cprintf("going to kill proc\n");
-    //   exit();
-    // }
+      if(curproc->killed) {
+        cprintf("going to kill proc\n");
+        exit();
+      }
     }
     break;
   case T_IRQ0 + IRQ_TIMER:

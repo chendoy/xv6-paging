@@ -281,10 +281,10 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           panic("allocuvm: writeToSwapFile");
         }
         
-        curproc->swappedPages[0].isused = 1;
-        curproc->swappedPages[0].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
-        curproc->swappedPages[0].pgdir = curproc->pgdir;
-        curproc->swappedPages[0].swap_offset = evicted_ind * PGSIZE;
+        curproc->swappedPages[curproc->num_swap].isused = 1;
+        curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
+        curproc->swappedPages[curproc->num_swap].pgdir = curproc->pgdir;
+        curproc->swappedPages[curproc->num_swap].swap_offset = evicted_ind * PGSIZE;
         cprintf("num swap: %d\n", curproc->num_swap);
         curproc->num_swap ++;
 
@@ -293,7 +293,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         // cprintf("addr %d:\n",curproc->ramPages[evicted_ind].virt_addr);
         // cprintf("addr %d:\n", P2V(evicted_pa));
       
-        pte_t *evicted_pte = walkpgdir(curproc->pgdir, (void*)curproc->ramPages[evicted_ind].virt_addr, 0);
+        pte_t *evicted_pte = walkpgdir(curproc->ramPages[evicted_ind].pgdir, (void*)curproc->ramPages[evicted_ind].virt_addr, 0);
 
         if(!(*evicted_pte & PTE_P))
           panic("allocuvm: swap: ram page not present");
@@ -322,7 +322,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
 uint indexToSwap()
 {
-  return 1;
+  return 15;
 }
 
 // Deallocate user pages to bring the process size from oldsz to
