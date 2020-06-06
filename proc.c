@@ -15,7 +15,9 @@ struct {
 static char buffer[PGSIZE];
 
 static struct proc *initproc;
- 
+
+static char buf[16 * 4096];
+
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -117,6 +119,10 @@ found:
   if(p->pid > 2) {
     if(createSwapFile(p) != 0)
       panic("allocproc: createSwapFile");
+    
+    memset(buf, 0, 16 * 4096);
+    writeToSwapFile(p, (char*)buf, 0, PGSIZE * 16);
+
     p->num_ram = 0;
     p->num_swap = 0;
     memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);

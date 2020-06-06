@@ -6,6 +6,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
+#include "stat.h"
 
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
@@ -274,9 +275,11 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         // get info of the page to be evicted
         uint evicted_ind = indexToSwap();
         struct page *evicted_page = &curproc->ramPages[evicted_ind];
-
-        if(writeToSwapFile(curproc, evicted_page->virt_addr, evicted_page->swap_offset, PGSIZE) < 0)
+        int write_res = writeToSwapFile(curproc, evicted_page->virt_addr, evicted_ind * PGSIZE, PGSIZE);
+        if(write_res < 0)
+        {
           panic("allocuvm: writeToSwapFile");
+        }
         
         curproc->swappedPages[0].isused = 1;
         curproc->swappedPages[0].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
@@ -319,7 +322,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
 uint indexToSwap()
 {
-  return 11;
+  return 1;
 }
 
 // Deallocate user pages to bring the process size from oldsz to
