@@ -6,11 +6,13 @@ char buf[7 * 4096];
 
 void simple_printf_test()
 {
+    printf(1, "\n-------- simple_printf_test --------\n");
    printf(1, "sanity test!\n");
 }
 
 void simple_buffer_test()
 {
+    printf(1, "\n-------- simple_buffer_test --------\n");
     char buf[1024];
     buf[0] = 'a';
     buf[512] = 'b';
@@ -20,6 +22,7 @@ void simple_buffer_test()
 
 void simple_fork_test()
 {
+    printf(1, "\n-------- simple_fork_test --------\n");
     int pid;
 
     if((pid = fork()) == 0) // child
@@ -38,14 +41,19 @@ void simple_fork_test()
 
 void pagefault_test()
 {
+    printf(1, "\n-------- pagefault_test --------\n");
     memset(buf, 'a', 7 * 4096);
     printf(1, "buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[4 * 4096 - 1], buf[7 * 4096 - 1]);
     return;
 }
 
 int
-main()
+main(void)
 {
+    simple_printf_test();
+    simple_buffer_test();
+    simple_fork_test();
     pagefault_test();
+    // exec("usertests");
     exit();
 }

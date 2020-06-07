@@ -53,10 +53,9 @@ trap(struct trapframe *tf)
     if(myproc()->pid > 2) 
     {
     pagefault();
-      if(curproc->killed) {
-        cprintf("going to kill proc\n");
-        exit();
-      }
+      // if(curproc->killed) {
+      //   exit();
+      // }
     }
     break;
   case T_IRQ0 + IRQ_TIMER:

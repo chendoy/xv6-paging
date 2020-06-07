@@ -39,6 +39,12 @@ struct page {
   int swap_offset;
 };
 
+struct fblock {
+  uint off;
+  struct fblock *next;
+  struct fblock *prev;
+};
+
 // page that avilable to process but no used yet
 // struct unusedpage {
 //   char *virt_addr;
@@ -73,8 +79,8 @@ struct proc {
   struct page ramPages [MAX_PSYC_PAGES];
   int num_ram;
   int num_swap;
-  // struct unusedpage *head_unused;  // head of the unused pages linked list, allways be the next page to use
-  // struct unusedpage *tail_unused;   // the tail of the unused pages linked list. allways be the last page to use
+  struct fblock *free_head;         // head of free blocks linked list of PGSIZE bytes in swapFile
+  struct fblock *free_tail;         // tail of free blocks linked list of PGSIZE bytes in swapFile
 
 };
 

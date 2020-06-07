@@ -16,7 +16,7 @@ static char buffer[PGSIZE];
 
 static struct proc *initproc;
 
-static char buf[16 * 4096];
+// static char buf[16 * 4096];
 
 int nextpid = 1;
 extern void forkret(void);
@@ -120,13 +120,44 @@ found:
     if(createSwapFile(p) != 0)
       panic("allocproc: createSwapFile");
     
-    memset(buf, 0, 16 * 4096);
-    writeToSwapFile(p, (char*)buf, 0, PGSIZE * 16);
+    // memset(buf, 0, 16 * 4096);
+    // writeToSwapFile(p, (char*)buf, 0, PGSIZE * 16);
 
     p->num_ram = 0;
     p->num_swap = 0;
     memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
     memset(p->swappedPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
+
+    if(p->pid > 2)
+    {
+  
+      // init fblock list
+      p->free_head = (struct fblock*)kalloc();
+      p->free_head->prev = 0;
+      p->free_head->off = 0 * PGSIZE;
+
+      struct fblock *prev = p->free_head;
+
+      for(int i = 1; i < MAX_PSYC_PAGES; i++)
+      {
+        struct fblock *curr = (struct fblock*)kalloc();
+        curr->off = i * PGSIZE;
+        curr->prev = prev;
+        curr->prev->next = curr;
+        prev = curr;
+      }
+      p->free_tail = prev;
+      p->free_tail->next = 0;
+
+      // struct fblock *curr = p->free_tail;
+      // for(int i = 0; i < MAX_PSYC_PAGES; i++)
+      // {
+      //   cprintf("%d -> ", curr->off);
+      //   curr = curr->prev;
+      // }
+      // cprintf("\n");
+
+    }
   }
 
 
@@ -184,6 +215,7 @@ growproc(int n)
     if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0)
       return -1;
   } else if(n < 0){
+    cprintf("growproc: n < 0\n");
     if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0)
       return -1;
   }
@@ -284,10 +316,10 @@ exit(void)
   struct proc *p;
   int fd;
 
-  if(curproc-> pid > 2)
-  {
-    removeSwapFile(curproc);
-  }
+  // if(curproc-> pid > 2)
+  // {
+  //   removeSwapFile(curproc);
+  // }
 
   if(curproc == initproc)
     panic("init exiting");
@@ -300,13 +332,15 @@ exit(void)
     }
   }
 
-  // if (removeSwapFile(curproc) != 0)
-  //   panic("exit: error deleting swap file");
-
   begin_op();
   iput(curproc->cwd);
   end_op();
   curproc->cwd = 0;
+
+  if(curproc->pid > 2) {
+    if (removeSwapFile(curproc) != 0)
+      panic("exit: error deleting swap file");
+  }
 
   acquire(&ptable.lock);
 
@@ -350,7 +384,7 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir);
+        freevm(p->pgdir); // panic: kfree
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;

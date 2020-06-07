@@ -1768,7 +1768,7 @@ main(int argc, char *argv[])
   bigwrite();
   bigargtest();
   bsstest();
-  // sbrktest(); task1
+  sbrktest();
   validatetest();
 
   opentest();
@@ -1780,7 +1780,7 @@ main(int argc, char *argv[])
   exitiputtest();
   iputtest();
 
-  // mem(); task1
+  mem();
   pipe1();
   preempt();
   exitwait();
