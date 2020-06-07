@@ -50,7 +50,7 @@
 00000d00 buf
 00000300 stat
 00000ce0 _edata
-00007d00 _end
+00008d00 _end
 00000423 link
 000003c3 exit
 00000030 simple_printf_test

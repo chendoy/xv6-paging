@@ -131,7 +131,9 @@ begin_op(void)
       sleep(&log, &log.lock);
     } else if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGSIZE){
       // this op might exhaust log space; wait for commit.
-      sleep(&log, &log.lock);
+      cprintf("before sleep\n");
+      sleep(&log, &log.lock); // deadlock
+      cprintf("after sleep\n");
     } else {
       log.outstanding += 1;
       release(&log.lock);

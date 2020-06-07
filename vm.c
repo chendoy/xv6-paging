@@ -241,6 +241,7 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
 int
 allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
+  // cprintf("*** ALLOCUVM ***\n");
   char *mem;
   uint a;
   struct proc* curproc = myproc();
@@ -292,21 +293,6 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         uint evicted_ind = indexToSwap();
         struct page *evicted_page = &curproc->ramPages[evicted_ind];
         int swap_offset = curproc->free_head->off;
-        if(curproc->free_head->next == 0)
-        {
-          curproc->free_tail = 0;
-          kfree((char*)curproc->free_head);
-          curproc->free_head = 0;
-        }
-        else
-        {
-          curproc->free_head = curproc->free_head->next;
-          kfree((char*)curproc->free_head->prev);
-        }
-   
-      
-        if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
-          panic("allocuvm: writeToSwapFile");
 
         curproc->swappedPages[curproc->num_swap].isused = 1;
         curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
@@ -314,6 +300,8 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         curproc->swappedPages[curproc->num_swap].swap_offset = swap_offset;
         // cprintf("num swap: %d\n", curproc->num_swap);
         curproc->num_swap ++;
+
+        
 
         // free the pyschial memory of the evicted addr
         // cprintf("evicted_ind: %d\n", evicted_ind);
@@ -340,6 +328,29 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         newpage->virt_addr = (char*)a;
 
         lcr3(V2P(curproc->pgdir)); // flush TLB
+
+        // cprintf("\n\nfree blocks list before writeToSwapFile2:\n");
+        // printlist();
+
+        // cprintf("going to write to offset %d\n", swap_offset);
+
+        if(curproc->free_head->next == 0)
+        {
+          curproc->free_tail = 0;
+          kfree((char*)curproc->free_head);
+          curproc->free_head = 0;
+        }
+        else
+        {
+          curproc->free_head = curproc->free_head->next;
+          kfree((char*)curproc->free_head->prev);
+        }
+
+        // cprintf("free blocks list after writeToSwapFile2:\n");
+        // printlist();
+   
+        if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
+          panic("allocuvm: writeToSwapFile");
       }
     }
     
@@ -401,11 +412,13 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           if((uint)p_ram.virt_addr == a && p_ram.pgdir == pgdir)
           {
             memset((void*)&p_ram, 0, sizeof(struct page)); // zero that page struct
+            curproc->num_ram -- ;
           }
 
           if((uint)p_swap.virt_addr == a && p_swap.pgdir == pgdir)
           {
             memset((void*)&p_swap, 0, sizeof(struct page)); // zero that page struct
+            curproc->num_swap --;
           }
         }
 
@@ -504,7 +517,7 @@ getSwappedPageIndex(char* va)
 void
 pagefault(void)
 {
-  printlist();
+  // cprintf("*** PAGEFAULT ***\n");
   struct proc* curproc = myproc();
   pte_t *pte;
   uint pa, new_pa;
@@ -531,6 +544,11 @@ pagefault(void)
     int index = getSwappedPageIndex(start_page); // get swap page index
     struct page *swap_page = &curproc->swappedPages[index];
 
+    // cprintf("\n\nfree blocks list before readFromSwapFile:\n");
+    // printlist();
+
+    // cprintf("going to read from offset %d\n", swap_page->swap_offset);
+
     if(readFromSwapFile(curproc, buffer, swap_page->swap_offset, PGSIZE) < 0)
       panic("allocuvm: readFromSwapFile");
 
@@ -538,15 +556,16 @@ pagefault(void)
     new_block->off = swap_page->swap_offset;
     new_block->next = 0;
     new_block->prev = curproc->free_tail;
+
     if(curproc->free_tail != 0)
-    {
       curproc->free_tail->next = new_block;
-    }
     else
-    {
       curproc->free_head = new_block;
-    }
+
     curproc->free_tail = new_block;
+
+    // cprintf("free blocks list after readFromSwapFile:\n");
+    // printlist();
 
     memmove((void*)start_page, buffer, PGSIZE);
 
@@ -570,6 +589,12 @@ pagefault(void)
       int index_to_evicet = indexToSwap();
       struct page *ram_page = &curproc->ramPages[index_to_evicet];
       int swap_offset = curproc->free_head->off;
+
+      // cprintf("\n\nfree blocks list before writeToSwapFile:\n");
+      // printlist();
+
+      // cprintf("going to write to offset %d\n", swap_offset);
+
       if(curproc->free_head->next == 0)
       {
         curproc->free_tail = 0;
@@ -581,8 +606,11 @@ pagefault(void)
         curproc->free_head = curproc->free_head->next;
         kfree((char*)curproc->free_head->prev);
       }
-   
-     
+
+      // cprintf("free blocks list after writeToSwapFile:\n");
+      // printlist();
+      
+
       if(writeToSwapFile(curproc, (char*)ram_page->virt_addr, swap_offset, PGSIZE) < 0)   // buffer now has bytes from swapped page (faulty one)
         panic("allocuvm: writeToSwapFile");
 

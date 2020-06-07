@@ -143,7 +143,6 @@ filewrite(struct file *f, char *addr, int n)
         f->off += r;
       iunlock(f->ip);
       end_op();
-
       if(r < 0)
         break;
       if(r != n1)

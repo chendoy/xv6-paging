@@ -132,14 +132,14 @@ main(void)
  10a:	68 3c 09 00 00       	push   $0x93c
  10f:	6a 01                	push   $0x1
  111:	e8 1a 04 00 00       	call   530 <printf>
-    memset(buf, 'a', 7 * 4096);
+    memset(buf, 'a', 8 * 4096);
  116:	83 c4 0c             	add    $0xc,%esp
- 119:	68 00 70 00 00       	push   $0x7000
+ 119:	68 00 80 00 00       	push   $0x8000
  11e:	6a 61                	push   $0x61
  120:	68 00 0d 00 00       	push   $0xd00
  125:	e8 f6 00 00 00       	call   220 <memset>
-    printf(1, "buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[4 * 4096 - 1], buf[7 * 4096 - 1]);
- 12a:	0f be 05 ff 7c 00 00 	movsbl 0x7cff,%eax
+    printf(1, "buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[4 * 4096 - 1], buf[8 * 4096 - 1]);
+ 12a:	0f be 05 ff 8c 00 00 	movsbl 0x8cff,%eax
  131:	89 04 24             	mov    %eax,(%esp)
  134:	0f be 05 ff 4c 00 00 	movsbl 0x4cff,%eax
  13b:	50                   	push   %eax

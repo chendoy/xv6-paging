@@ -2,7 +2,7 @@
 #include "stat.h"
 #include "user.h"
 
-char buf[7 * 4096];
+char buf[8 * 4096];
 
 void simple_printf_test()
 {
@@ -42,8 +42,8 @@ void simple_fork_test()
 void pagefault_test()
 {
     printf(1, "\n-------- pagefault_test --------\n");
-    memset(buf, 'a', 7 * 4096);
-    printf(1, "buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[4 * 4096 - 1], buf[7 * 4096 - 1]);
+    memset(buf, 'a', 8 * 4096);
+    printf(1, "buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[4 * 4096 - 1], buf[8 * 4096 - 1]);
     return;
 }
 
