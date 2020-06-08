@@ -285,14 +285,34 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           page->virt_addr = (char*)a;
           // cprintf("num ram : %d\n", curproc->num_ram);
           curproc->num_ram++;
+          cprintf("num ram : %d\n", curproc->num_ram);
       }
 
       else // no space in RAM for this new page, will swap
       {
+
         // get info of the page to be evicted
         uint evicted_ind = indexToSwap();
         struct page *evicted_page = &curproc->ramPages[evicted_ind];
         int swap_offset = curproc->free_head->off;
+
+        if(curproc->free_head->next == 0)
+        {
+          curproc->free_tail = 0;
+          kfree((char*)curproc->free_head);
+          curproc->free_head = 0;
+        }
+        else
+        {
+          curproc->free_head = curproc->free_head->next;
+          kfree((char*)curproc->free_head->prev);
+        }
+
+        // cprintf("free blocks list after writeToSwapFile2:\n");
+        // printlist();
+   
+        if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
+          panic("allocuvm: writeToSwapFile");
 
         curproc->swappedPages[curproc->num_swap].isused = 1;
         curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
@@ -300,6 +320,8 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         curproc->swappedPages[curproc->num_swap].swap_offset = swap_offset;
         // cprintf("num swap: %d\n", curproc->num_swap);
         curproc->num_swap ++;
+
+        cprintf("num swap : %d\n", curproc->num_swap);
 
         
 
@@ -334,23 +356,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
         // cprintf("going to write to offset %d\n", swap_offset);
 
-        if(curproc->free_head->next == 0)
-        {
-          curproc->free_tail = 0;
-          kfree((char*)curproc->free_head);
-          curproc->free_head = 0;
-        }
-        else
-        {
-          curproc->free_head = curproc->free_head->next;
-          kfree((char*)curproc->free_head->prev);
-        }
-
-        // cprintf("free blocks list after writeToSwapFile2:\n");
-        // printlist();
-   
-        if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
-          panic("allocuvm: writeToSwapFile");
+      
       }
     }
     
@@ -360,7 +366,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
 uint indexToSwap()
 {
-  return 15;
+  return 11;
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -532,7 +538,7 @@ pagefault(void)
 
   if(*pte & PTE_PG) // page was paged out
   {
-    cprintf("pagefault - %s (pid %d) - page was paged out\n", curproc->name, curproc->pid);
+    // cprintf("pagefault - %s (pid %d) - page was paged out\n", curproc->name, curproc->pid);
 
     new_page = kalloc();
     *pte |= PTE_P | PTE_W | PTE_U;
@@ -632,16 +638,17 @@ pagefault(void)
       *pte |= PTE_PG;                              // turn "paged-out" flag on
       *pte &= ~PTE_P;                              // turn "present" flag off
 
-      lcr3(V2P(curproc->pgdir));             // refresh TLB
+  
 
       ram_page->virt_addr = start_page;
+      lcr3(V2P(curproc->pgdir));             // refresh TLB
     }
     // cprintf("returning from pagefault\n");
     return;
   } 
 
     else {
-      cprintf("page was not paged out\n");
+      // cprintf("page was not paged out\n");
     // we should now do COW mechanism for kernel addresses
     if(va >= KERNBASE || pte == 0)
     {
