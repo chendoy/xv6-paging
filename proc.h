@@ -34,6 +34,7 @@ struct context {
 
 struct queue_node{
   struct queue_node* next;
+  struct queue_node* prev;
   int page_index;
 };
 
