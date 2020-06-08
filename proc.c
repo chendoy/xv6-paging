@@ -275,15 +275,13 @@ fork(void)
       np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
       np->swappedPages[i].pgdir = np->pgdir;
       np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
-        
-      if(readFromSwapFile((void*)curproc, buffer, np->swappedPages[i].swap_offset, PGSIZE) < 0)
-        panic("fork: readFromSwapFile");
-        
-      if(writeToSwapFile((void*)np, buffer, np->swappedPages[i].swap_offset, PGSIZE) < 0)
-        panic("fork: writeToSwapFile");
-
       }
     }
+      if(readFromSwapFile((void*)curproc, buffer, 0, PGSIZE * MAX_PSYC_PAGES) < 0)
+        panic("fork: readFromSwapFile");
+        
+      if(writeToSwapFile((void*)np, buffer, 0, PGSIZE * MAX_PSYC_PAGES) < 0)
+        panic("fork: writeToSwapFile");
   }
 }
 

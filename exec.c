@@ -59,15 +59,7 @@ exec(char *path, char **argv)
       }
       curproc->free_tail = prev;
       curproc->free_tail->next = 0;
-
-
-
-       
    }
-
-
-    
-
 
   begin_op();
 

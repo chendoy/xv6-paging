@@ -381,6 +381,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     return oldsz;
 
   a = PGROUNDUP(newsz);
+  
   for(; a  < oldsz; a += PGSIZE){
     pte = walkpgdir(pgdir, (char*)a, 0);
     if(!pte)
@@ -482,10 +483,11 @@ cowuvm(pde_t *pgdir, uint sz)
   {
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("cowuvm: no pte");
-    if(!(*pte & PTE_P))
-      panic("cowuvm: page not present");
+    if(!(*pte & PTE_P) && !(*pte & PTE_PG))
+      panic("cowuvm: page not present and not page faulted!");
     *pte |= PTE_COW;
     *pte &= ~PTE_W;
+
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     if(mappages(d, (void *) i, PGSIZE, pa, flags) < 0)
@@ -493,13 +495,15 @@ cowuvm(pde_t *pgdir, uint sz)
 
     char *virt_addr = P2V(pa);
     refInc(virt_addr);
-    invlpg((void*)i); // flush TLB
+    lcr3(V2P(pgdir));
+    // invlpg((void*)i); // flush TLB
   }
   return d;
 
 bad:
   cprintf("bad: cowuvm\n");
   freevm(d);
+  lcr3(V2P(pgdir));  // flush tlb
   return 0;
 }
 
@@ -532,9 +536,9 @@ pagefault(void)
   char *start_page = (char*)PGROUNDDOWN((uint)va); //round the va to closet 2 exponenet, to get the start of the page addr
   pte = walkpgdir(curproc->pgdir, start_page, 0);
 
-  if(*pte & PTE_PG) // page was paged out
+  if((*pte & PTE_PG) && (*pte & ~PTE_COW)) // paged out, not COW
   {
-    // cprintf("pagefault - %s (pid %d) - page was paged out\n", curproc->name, curproc->pid);
+    cprintf("pagefault - %s (pid %d) - page was paged out\n", curproc->name, curproc->pid);
 
     new_page = kalloc();
     *pte |= PTE_P | PTE_W | PTE_U;
@@ -643,8 +647,8 @@ pagefault(void)
     return;
   } 
 
-    else {
-      // cprintf("page was not paged out\n");
+    else { // 
+      cprintf("pagefault - %s (pid %d) - COW\n", curproc->name, curproc->pid);
     // we should now do COW mechanism for kernel addresses
     if(va >= KERNBASE || pte == 0)
     {
@@ -653,16 +657,19 @@ pagefault(void)
       return;
     }
 
+    if(!(pte = walkpgdir(curproc->pgdir, (void*)va, 0)))
+      panic("pagefult (cow): pte is 0");
+
   // checking that page fault caused by write
-  if(err & FEC_WR)
+  if(err & FEC_WR) // a cow pagefault is a write fault
   {
     // if the page of this address not includes the PTE_COW flag, kill the process
-    if(!(*pte & PTE_COW)) 
+    if(!(*pte & PTE_COW))
     {
       curproc->killed = 1;
       return;
     }
-    else
+    else // at this point: FEC_WR & PTE_COW are ON
     {
       int ref_count;
       pa = PTE_ADDR(*pte);
@@ -674,6 +681,7 @@ pagefault(void)
 
       if (ref_count > 1) // more than one reference
       {
+
         new_page = kalloc();
         //curproc->nummemorypages++;
         memmove(new_page, virt_addr, PGSIZE); // copy the faulty page to the newly allocated one
