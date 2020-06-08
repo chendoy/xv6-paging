@@ -2,7 +2,7 @@
 #include "stat.h"
 #include "user.h"
 
-#define BUF_PAGES 14
+#define BUF_PAGES 17
 char buf[BUF_PAGES * 4096];
 
 void simple_printf_test()
@@ -51,9 +51,9 @@ void pagefault_test()
 int
 main(void)
 {
-    simple_printf_test();
-    simple_buffer_test();
-    simple_fork_test();
+    // simple_printf_test();
+    // simple_buffer_test();
+    // simple_fork_test();
     pagefault_test();
     // exec("usertests");
     exit();

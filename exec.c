@@ -28,7 +28,7 @@ exec(char *path, char **argv)
 
     if(curproc->pid > 2)
      {
-
+      cprintf("exec now\n");
       memmove((void*)ramPagesBackup, curproc->ramPages, 16 * sizeof(struct page));
       memmove((void*)swappedPagesBackup, curproc->swappedPages, 16 * sizeof(struct page));
       num_ram_backup = curproc->num_ram; num_swap_backup = curproc->num_swap;
@@ -59,6 +59,7 @@ exec(char *path, char **argv)
       }
       curproc->free_tail = prev;
       curproc->free_tail->next = 0;
+
 
 
        
