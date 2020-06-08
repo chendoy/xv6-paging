@@ -117,6 +117,9 @@ found:
   p->context->eip = (uint)forkret;
 
   if(p->pid > 2) {
+
+    p->selection = LAPA;  //TODO: DELETE THIS
+
     if(createSwapFile(p) != 0)
       panic("allocproc: createSwapFile");
     
@@ -125,6 +128,16 @@ found:
 
     p->num_ram = 0;
     p->num_swap = 0;
+    if(p->selection == SCFIFO)
+    {
+      p->clockHand = 0;
+    }
+    if(p->selection == AQ)
+    {
+      p->queue_head = 0;
+      p->queue_tail = 0;
+    }
+
     memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
     memset(p->swappedPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
 
@@ -265,6 +278,7 @@ fork(void)
         np->ramPages[i].isused = 1;
         np->ramPages[i].virt_addr = curproc->ramPages[i].virt_addr;
         np->ramPages[i].pgdir = np->pgdir;
+        np->ramPages[i].ref_bit = curproc->ramPages[i].ref_bit;
       }
 
     for(i = 0; i < MAX_PSYC_PAGES; i++)
@@ -275,6 +289,7 @@ fork(void)
       np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
       np->swappedPages[i].pgdir = np->pgdir;
       np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
+      np->swappedPages[i].ref_bit = curproc->swappedPages[i].ref_bit;
       }
     }
       if(readFromSwapFile((void*)curproc, buffer, 0, PGSIZE * MAX_PSYC_PAGES) < 0)

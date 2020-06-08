@@ -2,5 +2,4 @@
 
 clear
 make clean
-make
-make qemu
+make qemu $1

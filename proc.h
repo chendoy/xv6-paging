@@ -32,11 +32,19 @@ struct context {
   uint eip;
 };
 
+struct queue_node{
+  struct queue_node* next;
+  int page_index;
+};
+
 struct page {
   pde_t* pgdir;   
   int isused;
   char *virt_addr;
   int swap_offset;
+  int ref_bit;        // SCFIFO referenced bit
+  uint nfua_counter;  // NFUA counter
+  uint lapa_counter;  // LAPA counter
 };
 
 struct fblock {
@@ -79,8 +87,14 @@ struct proc {
   struct page ramPages [MAX_PSYC_PAGES];
   int num_ram;
   int num_swap;
+  uint clockHand;                   // Second chance FIFO clock hand (0 <= clockHand <= 15)
   struct fblock *free_head;         // head of free blocks linked list of PGSIZE bytes in swapFile
   struct fblock *free_tail;         // tail of free blocks linked list of PGSIZE bytes in swapFile
+
+  struct queue_node* queue_head;
+  struct queue_node* queue_tail;
+  int selection;
+  
 
 };
 

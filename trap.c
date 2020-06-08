@@ -50,14 +50,18 @@ trap(struct trapframe *tf)
 
   switch(tf->trapno){
   case T_PGFLT:
+  #if SELECTION==NONE
+    break;
+  #else
     if(myproc()->pid > 2) 
     {
     pagefault();
-      // if(curproc->killed) {
-      //   exit();
-      // }
+      if(curproc->killed) {
+        exit();
+      }
     }
     break;
+  #endif
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);
@@ -115,7 +119,11 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
      tf->trapno == T_IRQ0+IRQ_TIMER)
-    yield();
+     {
+      updateNfua(myproc());
+      updateLapa(myproc());
+      yield();
+     }
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)

@@ -271,99 +271,278 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
 
-    if(curproc->pid > 2) {
-
-      if(curproc->num_ram < MAX_PSYC_PAGES) // there is space in RAM
-      {
-          // cprintf("allocuvm, not init or shell, there is space in RAM\n");
-          int new_index = getNextFreeRamIndex();
-          struct page *page = &curproc->ramPages[new_index];
-
-          page->isused = 1;
-          page->pgdir = pgdir;
-          page->swap_offset = -1;
-          page->virt_addr = (char*)a;
-          cprintf("num ram : %d\n", curproc->num_ram);
-          curproc->num_ram++;
-          // cprintf("num ram : %d\n", curproc->num_ram);
-
-          
-
-      }
-
-      else // no space in RAM for this new page, will swap
-      {
-        if(curproc-> num_swap >= MAX_PSYC_PAGES)
-          panic("exceeded max swap pages");
-        // cprintf("alloc, write to swap\n");
-
-        // get info of the page to be evicted
-        uint evicted_ind = indexToSwap();
-        struct page *evicted_page = &curproc->ramPages[evicted_ind];
-        int swap_offset = curproc->free_head->off;
-
-        if(curproc->free_head->next == 0)
-        {
-          curproc->free_tail = 0;
-          kfree((char*)curproc->free_head);
-          curproc->free_head = 0;
-        }
-        else
-        {
-          curproc->free_head = curproc->free_head->next;
-          kfree((char*)curproc->free_head->prev);
-        }
-
-        if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
-          panic("allocuvm: writeToSwapFile");
-
-        curproc->swappedPages[curproc->num_swap].isused = 1;
-        curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
-        curproc->swappedPages[curproc->num_swap].pgdir = curproc->ramPages[evicted_ind].pgdir;
-        curproc->swappedPages[curproc->num_swap].swap_offset = swap_offset;
-        cprintf("num swap: %d\n", curproc->num_swap);
-        lcr3(V2P(curproc->swappedPages[curproc->num_swap].pgdir)); // flush TLB
-        curproc->num_swap ++;
-
-        // cprintf("num swap : %d\n", curproc->num_swap);
-        pte_t *evicted_pte = walkpgdir(curproc->ramPages[evicted_ind].pgdir, (void*)curproc->ramPages[evicted_ind].virt_addr, 0);
-
-        if(!(*evicted_pte & PTE_P))
-          panic("allocuvm: swap: ram page not present");
-        
-        char *evicted_pa = (char*)PTE_ADDR(*evicted_pte);
-        
-        kfree(P2V(evicted_pa));
-        *evicted_pte &= 0xFFF; // ???
-
-        *evicted_pte |= PTE_PG;
-        *evicted_pte &= ~PTE_P;
-      
-
-        struct page *newpage = &curproc->ramPages[evicted_ind];
-        newpage->isused = 1;
-        newpage->pgdir = pgdir; // ??? 
-        newpage->swap_offset = -1;
-        newpage->virt_addr = (char*)a;
-      
-
-        // cprintf("\n\nfree blocks list before writeToSwapFile2:\n");
-        // printlist();
-
-        // cprintf("going to write to offset %d\n", swap_offset);
-
-      
-      }
+    if(curproc->pid > 2) 
+    {
+        allocuvm_paging(curproc, pgdir, (char *)a);
     }
     
   }
   return newsz;
 }
 
-uint indexToSwap()
+void
+allocuvm_paging(struct proc * curproc, pde_t *pgdir, char* rounded_virtaddr)
 {
-  return 11;
+    if(curproc->num_ram < MAX_PSYC_PAGES) // there is space in RAM
+    {
+       allocuvm_noswap(curproc, pgdir, rounded_virtaddr); 
+    }
+
+    else // no space in RAM for this new page, will swap
+    {
+      allocuvm_withswap(curproc, pgdir, rounded_virtaddr);
+    }
 }
+
+void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
+{
+// cprintf("allocuvm, not init or shell, there is space in RAM\n");
+  int new_index = getNextFreeRamIndex();
+
+  struct page *page = &curproc->ramPages[new_index];
+
+  page->isused = 1;
+  page->pgdir = pgdir;
+  page->swap_offset = -1;
+  page->virt_addr = rounded_virtaddr;
+  if(curproc->selection == SCFIFO)
+  {
+    page->ref_bit = 0;
+  }
+  if(curproc->selection == NFUA)
+  {
+    page->nfua_counter = 0;
+  }
+  if(curproc->selection == LAPA)
+  {
+    page->lapa_counter = 0xFFFFFFFF;
+  }
+
+  cprintf("filling ram slot: %d\n", new_index);
+  curproc->num_ram++;
+  // cprintf("num ram : %d\n", curproc->num_ram);
+}
+
+void
+allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
+{
+   if(curproc-> num_swap >= MAX_PSYC_PAGES)
+        panic("exceeded max swap pages");
+      // cprintf("alloc, write to swap\n");
+
+      // get info of the page to be evicted
+      uint evicted_ind = indexToEvict();
+      cprintf("index to evict: %d\n",evicted_ind);
+      struct page *evicted_page = &curproc->ramPages[evicted_ind];
+      int swap_offset = curproc->free_head->off;
+
+      if(curproc->free_head->next == 0)
+      {
+        curproc->free_tail = 0;
+        kfree((char*)curproc->free_head);
+        curproc->free_head = 0;
+      }
+      else
+      {
+        curproc->free_head = curproc->free_head->next;
+        kfree((char*)curproc->free_head->prev);
+      }
+
+      if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
+        panic("allocuvm: writeToSwapFile");
+
+      curproc->swappedPages[curproc->num_swap].isused = 1;
+      curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
+      curproc->swappedPages[curproc->num_swap].pgdir = curproc->ramPages[evicted_ind].pgdir;
+      curproc->swappedPages[curproc->num_swap].swap_offset = swap_offset;
+      cprintf("num swap: %d\n", curproc->num_swap);
+      lcr3(V2P(curproc->swappedPages[curproc->num_swap].pgdir)); // flush TLB
+      curproc->num_swap ++;
+
+      // cprintf("num swap : %d\n", curproc->num_swap);
+      pte_t *evicted_pte = walkpgdir(curproc->ramPages[evicted_ind].pgdir, (void*)curproc->ramPages[evicted_ind].virt_addr, 0);
+
+      if(!(*evicted_pte & PTE_P))
+        panic("allocuvm: swap: ram page not present");
+      
+      char *evicted_pa = (char*)PTE_ADDR(*evicted_pte);
+      
+      kfree(P2V(evicted_pa));
+      *evicted_pte &= 0xFFF; // ???
+
+      *evicted_pte |= PTE_PG;
+      *evicted_pte &= ~PTE_P;
+    
+
+      struct page *newpage = &curproc->ramPages[evicted_ind];
+      newpage->isused = 1;
+      newpage->pgdir = pgdir; // ??? 
+      newpage->swap_offset = -1;
+      newpage->virt_addr = rounded_virtaddr;
+      if(curproc->selection == SCFIFO)
+      {
+        newpage->ref_bit = 0;
+      }
+      if(curproc -> selection == NFUA)
+      {
+        newpage->nfua_counter = 0;
+      }
+      if(curproc -> selection == LAPA)
+      {
+        newpage->lapa_counter =  0xFFFFFFFF;
+      }
+}
+
+uint indexToEvict()
+{
+  struct proc* curproc = myproc();
+  
+  if(curproc->selection == DUMMY)
+  {
+    return 11;
+  }
+  
+  if(curproc->selection == SCFIFO)
+  {
+    return scfifo();
+  }
+
+  if(curproc->selection == NFUA)
+  {
+    return nfua();
+  }
+
+  if(curproc->selection == LAPA)
+  {
+    return lapa();
+  }
+
+  if(curproc->selection == AQ)
+  {
+    return aq();
+  }
+  // #if SELECTION==DUMMUY
+  //   return 14;
+  // #endif
+  
+  // #if SELECTION==SCFIFO
+  //  return scfifo();
+  // #endif
+
+  // #if SELECTION==NFUA
+  //   return nfua();
+  // #endif
+
+  // #if SELECTION==LAPA
+  
+  // #endif
+
+  // #if SELECTION==AQ
+  
+  // #endif
+
+  // /* DEFAULT */
+  return scfifo();
+  
+}
+
+uint aq()
+{
+  return 0;
+}
+uint lapa()
+{
+  struct proc *curproc = myproc();
+  struct page *ramPages = curproc->ramPages;
+  /* find the page with the smallest number of '1's */
+  int i;
+  uint minNumOfOnes = countSetBits(ramPages[0].nfua_counter);
+  uint minloc = 0;
+  uint instances = 0;
+
+  for(i = 1; i < MAX_PSYC_PAGES; i++)
+  {
+    uint numOfOnes = countSetBits(ramPages[i].lapa_counter);
+    if(numOfOnes < minNumOfOnes)
+    {
+      minNumOfOnes = numOfOnes;
+      minloc = i;
+      instances = 1;
+    }
+    else if(numOfOnes == minNumOfOnes)
+      instances++;
+  }
+  if(instances > 1) // more than one counter with minimal number of 1's
+    minloc = nfua(); // re-use of nfua code
+  
+  return minloc;
+}
+uint nfua()
+{
+  struct proc *curproc = myproc();
+  struct page *ramPages = curproc->ramPages;
+  /* find the page with the minimal nfua */
+  int i;
+  uint minval = ramPages[0].nfua_counter;
+  uint minloc = 0;
+
+  for(i = 1; i < MAX_PSYC_PAGES; i++)
+  {
+    if(ramPages[i].nfua_counter < minval)
+    {
+      minval = ramPages[i].nfua_counter;
+      minloc = i;
+    }
+  }
+  return minloc;
+}
+
+uint scfifo()
+{
+  struct proc* curproc = myproc();
+   int i;
+    for(i = curproc->clockHand ; i < MAX_PSYC_PAGES ; i++)
+    {
+       if(curproc->ramPages[i].ref_bit == 0)
+       {
+          curproc->ramPages[i].ref_bit = 1;
+          if(curproc->clockHand == MAX_PSYC_PAGES - 1)
+          {
+            curproc->clockHand = 0;
+          }
+          else
+          {
+            curproc->clockHand = curproc->clockHand + 1;
+          }
+          cprintf("scfifo returned %d\n", i);
+          return i;
+       }
+       else
+       {
+          curproc->ramPages[i].ref_bit = 0; 
+       }
+    }
+    
+    int j;
+    for(j=0; j< curproc->clockHand ;j++)
+    {
+       if(curproc->ramPages[j].ref_bit == 0)
+       {
+          curproc->ramPages[j].ref_bit = 1;
+          curproc->clockHand = curproc->clockHand + 1;
+
+          cprintf("scfifo returned %d\n", j);
+          return j;
+       }
+       else
+       {
+          curproc->ramPages[j].ref_bit = 0; 
+       }
+    }
+    cprintf("scfifo returned %d\n", -1);
+    return -1;
+}
+
 
 // Deallocate user pages to bring the process size from oldsz to
 // newsz.  oldsz and newsz need not be page-aligned, nor does newsz
@@ -523,6 +702,7 @@ getSwappedPageIndex(char* va)
 void
 pagefault(void)
 {
+
   // cprintf("*** PAGEFAULT ***\n");
   struct proc* curproc = myproc();
   pte_t *pte;
@@ -536,7 +716,7 @@ pagefault(void)
   char *start_page = (char*)PGROUNDDOWN((uint)va); //round the va to closet 2 exponenet, to get the start of the page addr
   pte = walkpgdir(curproc->pgdir, start_page, 0);
 
-  if((*pte & PTE_PG) && (*pte & ~PTE_COW)) // paged out, not COW
+  if((*pte & PTE_PG) && (*pte & ~PTE_COW)) // paged out, not COW todo
   {
     cprintf("pagefault - %s (pid %d) - page was paged out\n", curproc->name, curproc->pid);
 
@@ -582,19 +762,39 @@ pagefault(void)
     {
       // cprintf("there is space in RAM\n");
       int new_indx = getNextFreeRamIndex();
+
+      cprintf("filling ram slot: %d\n", new_indx);
       
       curproc->ramPages[new_indx].virt_addr = start_page;
       curproc->ramPages[new_indx].isused = 1;
       curproc->ramPages[new_indx].pgdir = curproc->pgdir;
       curproc->ramPages[new_indx].swap_offset = -1;//change the swap offset by the new index
+      
+      if(curproc->selection == SCFIFO)
+      {
+        curproc->ramPages[new_indx].ref_bit = 1;
+      }
+
+      if(curproc -> selection == NFUA)
+      {
+        curproc->ramPages[new_indx].nfua_counter = 0;
+      }
+
+       if(curproc -> selection == LAPA)
+      {
+        curproc->ramPages[new_indx].lapa_counter =  0xFFFFFFFF;
+      }
+
       curproc->num_ram++;      
       curproc->num_swap--;
     }
-    else // no sapce in proc RAM
+    else // no sapce in proc RAM, will swap
     {
-      int index_to_evicet = indexToSwap();
+      int index_to_evicet = indexToEvict();
+      cprintf("index to evict: %d\n", index_to_evicet);
       struct page *ram_page = &curproc->ramPages[index_to_evicet];
       int swap_offset = curproc->free_head->off;
+
 
       // cprintf("\n\nfree blocks list before writeToSwapFile:\n");
       // printlist();
@@ -639,8 +839,23 @@ pagefault(void)
       *pte &= ~PTE_P;                              // turn "present" flag off
 
   
-
+    
       ram_page->virt_addr = start_page;
+      if(curproc->selection == SCFIFO)
+      {
+        ram_page->ref_bit = 1;
+      }
+
+      if(curproc -> selection == NFUA)
+      {
+        ram_page->nfua_counter = 0;
+      }
+
+      if(curproc -> selection == LAPA)
+      {
+        ram_page->lapa_counter =  0xFFFFFFFF;
+      }
+
       lcr3(V2P(curproc->pgdir));             // refresh TLB
     }
     // cprintf("returning from pagefault\n");
@@ -807,9 +1022,69 @@ getNextFreeRamIndex()
   }
   return -1;
 }
+
+
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!
 // Blank page.
+
+void updateLapa(struct proc* p)
+{
+  struct page *ramPages = p->ramPages;
+  int i;
+  pte_t *pte;
+  for(i = 0; i < MAX_PSYC_PAGES; i++)
+  {
+    struct page *cur_page = &ramPages[i];
+    if(!cur_page->isused)
+      continue;
+    if((pte = walkpgdir(cur_page->pgdir, cur_page->virt_addr, 0)) == 0)
+      panic("updateLapa: no pte");
+    if(*pte & PTE_A) // if accessed
+    {
+      cur_page->lapa_counter = cur_page->lapa_counter << 1; // shift right one bit
+      cur_page->lapa_counter |= 1 << 31; // turn on MSB
+    }
+    else
+    {
+      cur_page->lapa_counter = cur_page->lapa_counter << 1; // just shit right one bit
+    }
+  }
+}
+
+void updateNfua(struct proc* p)
+{
+  struct page *ramPages = p->ramPages;
+  int i;
+  pte_t *pte;
+  for(i = 0; i < MAX_PSYC_PAGES; i++)
+  {
+    struct page *cur_page = &ramPages[i];
+    if(!cur_page->isused)
+      continue;
+    if((pte = walkpgdir(cur_page->pgdir, cur_page->virt_addr, 0)) == 0)
+      panic("updateNfua: no pte");
+    if(*pte & PTE_A) // if accessed
+    {
+      cur_page->nfua_counter = cur_page->nfua_counter << 1; // shift right one bit
+      cur_page->nfua_counter |= 1 << 31; // turn on MSB
+    }
+    else
+    {
+      cur_page->nfua_counter = cur_page->nfua_counter << 1; // just shit right one bit
+    }
+  }
+}
+
+uint countSetBits(uint n) 
+{ 
+    uint count = 0; 
+    while (n) { 
+        count += n & 1; 
+        n >>= 1; 
+    } 
+    return count; 
+} 

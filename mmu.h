@@ -95,6 +95,7 @@ struct segdesc {
 #define PTE_U           0x004           // User
 #define PTE_PS          0x080           // Page Size
 #define PTE_PG          0x00000200      // Paged out to secondary storage 
+#define PTE_A           0x020           // Accessed
 
 // Page fault error codes
 #define FEC_PR		0x00000001	// Page fault caused by protection violation

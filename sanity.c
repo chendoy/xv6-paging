@@ -53,8 +53,7 @@ main(void)
 {
     // simple_printf_test();
     // simple_buffer_test();
-    simple_fork_test();
-    // pagefault_test();
-    // exec("usertests");
+    // simple_fork_test();
+    pagefault_test();
     exit();
 }

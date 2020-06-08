@@ -207,8 +207,25 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
-uint            indexToSwap();
+uint            indexToEvict();
+uint            scfifo();
+uint            nfua();
+uint            aq();
+uint            lapa();
 int             getNextFreeRamIndex();
+void            updateNfua(struct proc*);
+void            updateLapa(struct proc*);
+void            allocuvm_noswap(struct proc*, pde_t *, char*);
+void            allocuvm_paging(struct proc* , pde_t *, char*);
+void            allocuvm_withswap(struct proc*, pde_t *, char*);
+uint            countSetBits(uint n); 
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+#define NONE   0
+#define NFUA   1
+#define LAPA   2
+#define SCFIFO 3
+#define AQ     4
+#define DUMMY  5
