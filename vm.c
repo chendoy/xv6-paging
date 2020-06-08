@@ -321,7 +321,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
         curproc->swappedPages[curproc->num_swap].pgdir = curproc->ramPages[evicted_ind].pgdir;
         curproc->swappedPages[curproc->num_swap].swap_offset = swap_offset;
-        // cprintf("num swap: %d\n", curproc->num_swap);
+        cprintf("num swap: %d\n", curproc->num_swap);
         lcr3(V2P(curproc->swappedPages[curproc->num_swap].pgdir)); // flush TLB
         curproc->num_swap ++;
 

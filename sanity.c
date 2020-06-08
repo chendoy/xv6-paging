@@ -2,7 +2,7 @@
 #include "stat.h"
 #include "user.h"
 
-#define BUF_PAGES 17
+#define BUF_PAGES 14
 char buf[BUF_PAGES * 4096];
 
 void simple_printf_test()
