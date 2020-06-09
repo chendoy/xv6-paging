@@ -261,7 +261,6 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
 int
 allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
-  cprintf("*** ALLOCUVM ***\n");
   char *mem;
   uint a;
   struct proc* curproc = myproc();
@@ -273,8 +272,9 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     return oldsz;
 
   a = PGROUNDUP(oldsz);
+  
+  int i=0;
   for(; a < newsz; a += PGSIZE){
-    
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
@@ -282,7 +282,6 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
     memset(mem, 0, PGSIZE);
-    // cprintf("3\n");
     
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
@@ -292,12 +291,14 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     }
 
     if(curproc->pid > 2) 
-    {
-        cprintf("going to execute: allocuvm_paging\n");
+    {   
         allocuvm_paging(curproc, pgdir, (char *)a);
     }
-    
+
+    i+=1;
   }
+
+ 
   return newsz;
 }
 
@@ -331,7 +332,7 @@ void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
   cprintf("allocating addr : %p\n\n", rounded_virtaddr);
 
   curproc->num_ram++;
-  // cprintf("num ram : %d\n", curproc->num_ram);
+  
 }
 
 
@@ -339,14 +340,12 @@ void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 void
 allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 {
-  cprintf("--allocate with swap--\n\n");
    if(curproc-> num_swap >= MAX_PSYC_PAGES)
-        panic("exceeded max swap pages");
-      // cprintf("alloc, write to swap\n");
+        panic("page limit exceeded");
 
       // get info of the page to be evicted
       uint evicted_ind = indexToEvict();
-      cprintf("index to evict: %d\n",evicted_ind);
+      cprintf("[allocuvm] index to evict: %d\n",evicted_ind);
       struct page *evicted_page = &curproc->ramPages[evicted_ind];
       int swap_offset = curproc->free_head->off;
 
@@ -362,10 +361,10 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
         kfree((char*)curproc->free_head->prev);
       }
 
-      cprintf("before write to swap\n");
+      // cprintf("before write to swap\n");
       if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
         panic("allocuvm: writeToSwapFile");
-      cprintf("after write to swap\n");
+
 
       curproc->swappedPages[curproc->num_swap].isused = 1;
       curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
@@ -375,9 +374,9 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       lcr3(V2P(curproc->swappedPages[curproc->num_swap].pgdir)); // flush TLB
       curproc->num_swap ++;
 
-      // cprintf("num swap : %d\n", curproc->num_swap);
 
       pte_t *evicted_pte = walkpgdir(curproc->ramPages[evicted_ind].pgdir, (void*)curproc->ramPages[evicted_ind].virt_addr, 0);
+
 
 
       if(!(*evicted_pte & PTE_P))
@@ -385,7 +384,9 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       
       char *evicted_pa = (char*)PTE_ADDR(*evicted_pte);
       
+
       kfree(P2V(evicted_pa));
+
       *evicted_pte &= 0xFFF; // ???
 
       *evicted_pte |= PTE_PG;
@@ -398,6 +399,7 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       newpage->swap_offset = -1;
       newpage->virt_addr = rounded_virtaddr;
       update_selectionfiled_allocuvm(curproc, newpage, evicted_ind);
+     
 }
 
 void
@@ -405,7 +407,7 @@ update_selectionfiled_allocuvm(struct proc* curproc, struct page* page, int page
 {
 
    #if SELECTION == NFUA
-    page->nfua_counter = 0;
+    page->nfua_counter = 0xFFFFFFFF; // initial with '1's for debugging
   #endif
 
   #if SELECTION == LAPA
@@ -415,7 +417,7 @@ update_selectionfiled_allocuvm(struct proc* curproc, struct page* page, int page
   #if SELECTION == AQ
     struct queue_node * node = (struct queue_node*)kalloc();
     node->page_index = page_ramindex;
-    cprintf("page ram index is: %d\n", page_ramindex);
+    // cprintf("page ram index is: %d\n", page_ramindex);
     if(curproc->queue_head == 0 && curproc->queue_tail ==0)  //the first queue_node 
     {
       curproc-> queue_head = node;
@@ -612,7 +614,7 @@ pagefault(void)
   } 
   else
   {
-    cprintf("pagefault - %s (pid %d) - COW\n", curproc->name, curproc->pid);
+    cprintf("pagefault - %s (pid %d) - maybe COW\n", curproc->name, curproc->pid);
     // we should now do COW mechanism for kernel addresses
     if(va >= KERNBASE || pte == 0)
     {
@@ -697,7 +699,6 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
     *pte &= 0xFFF;
     *pte |= V2P(new_page);
     
-    
     int index = getSwappedPageIndex(start_page); // get swap page index
     struct page *swap_page = &curproc->swappedPages[index];
 
@@ -738,21 +739,15 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
 
       update_selectionfiled_pagefault(curproc, &curproc->ramPages[new_indx], new_indx);
   
-      curproc->num_ram++;      
+      curproc->num_ram++;
       curproc->num_swap--;
     }
     else // no sapce in proc RAM, will swap
     {
       int index_to_evicet = indexToEvict();
-      cprintf("index to evict: %d\n", index_to_evicet);
+      cprintf("[pagefault] index to evict: %d\n", index_to_evicet);
       struct page *ram_page = &curproc->ramPages[index_to_evicet];
       int swap_offset = curproc->free_head->off;
-
-
-      // cprintf("\n\nfree blocks list before writeToSwapFile:\n");
-      // printlist();
-
-      // cprintf("going to write to offset %d\n", swap_offset);
 
       if(curproc->free_head->next == 0)
       {
@@ -766,13 +761,9 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
         kfree((char*)curproc->free_head->prev);
       }
 
-      // cprintf("free blocks list after writeToSwapFile:\n");
-      // printlist();
-      
-      cprintf("swap off : %d\n", swap_offset);
       if(writeToSwapFile(curproc, (char*)ram_page->virt_addr, swap_offset, PGSIZE) < 0)   // buffer now has bytes from swapped page (faulty one)
         panic("allocuvm: writeToSwapFile");
-    
+      
       swap_page->virt_addr = ram_page->virt_addr;
       swap_page->pgdir = ram_page->pgdir;
       swap_page->isused = 1;
@@ -793,10 +784,9 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
 
       ram_page->virt_addr = start_page;
       update_selectionfiled_pagefault(curproc, ram_page, index_to_evicet);
-
+      
       lcr3(V2P(curproc->pgdir));             // refresh TLB
     }
-    // cprintf("returning from pagefault\n");
     return;
 }
 
@@ -805,7 +795,7 @@ void
 update_selectionfiled_pagefault(struct proc* curproc, struct page* page, int page_ramindex)
 {
   #if SELECTION == NFUA
-    page->nfua_counter = 0;
+    page->nfua_counter = 0xFFFFFFFF;
   #endif
 
   #if SELECTION == LAPA
@@ -960,12 +950,12 @@ void updateLapa(struct proc* p)
       panic("updateLapa: no pte");
     if(*pte & PTE_A) // if accessed
     {
-      cur_page->lapa_counter = cur_page->lapa_counter << 1; // shift right one bit
+      cur_page->lapa_counter = cur_page->lapa_counter >> 1; // shift right one bit
       cur_page->lapa_counter |= 1 << 31; // turn on MSB
     }
     else
     {
-      cur_page->lapa_counter = cur_page->lapa_counter << 1; // just shit right one bit
+      cur_page->lapa_counter = cur_page->lapa_counter >> 1; // just shit right one bit
     }
   }
 }
@@ -984,19 +974,20 @@ void updateNfua(struct proc* p)
       panic("updateNfua: no pte");
     if(*pte & PTE_A) // if accessed
     {
-      cur_page->nfua_counter = cur_page->nfua_counter << 1; // shift right one bit
-      cur_page->nfua_counter |= 1 << 31; // turn on MSB
+      cur_page->nfua_counter = cur_page->nfua_counter >> 1; // shift right one bit
+      cur_page->nfua_counter |= 0x80000000; // turn on MSB
     }
     else
     {
-      cur_page->nfua_counter = cur_page->nfua_counter << 1; // just shit right one bit
+      cur_page->nfua_counter = cur_page->nfua_counter >> 1; // just shit right one bit
     }
+    *pte &= ~PTE_A;
   }
 }
 uint indexToEvict()
 {  
   #if SELECTION==DUMMY
-    return 11;
+    return 3;
   #endif
   #if SELECTION==SCFIFO
     return scfifo();
@@ -1080,6 +1071,7 @@ uint nfua()
 
   for(i = 1; i < MAX_PSYC_PAGES; i++)
   {
+    // cprintf("i = %d, nufa_counter : %d\n", i, ramPages[i].nfua_counter);
     if(ramPages[i].nfua_counter < minval)
     {
       minval = ramPages[i].nfua_counter;
@@ -1093,7 +1085,9 @@ uint scfifo()
 {
   struct proc* curproc = myproc();
    int i;
-    for(i = curproc->clockHand ; i < MAX_PSYC_PAGES ; i++)
+   while(1)
+   {
+     for(i = curproc->clockHand ; i < MAX_PSYC_PAGES ; i++)
     {
       pte_t *pte = walkpgdir(curproc->ramPages[i].pgdir, curproc->ramPages[i].virt_addr, 0);
        if(!(*pte & PTE_A)) //ref bit is off
@@ -1122,7 +1116,6 @@ uint scfifo()
        if(!(*pte & PTE_A)) //ref bit is off
        {
           curproc->clockHand = j + 1;
-          cprintf("scfifo returned %d\n", j);
           return j;
        }
        else
@@ -1131,6 +1124,8 @@ uint scfifo()
           *pte &= ~PTE_A;  
        }
     }
+   }
+    
     panic("scfifo: not found any index!");
     return -1;
 }
@@ -1204,7 +1199,6 @@ void updateAQ(struct proc* p)
 
 void swapAQ(struct queue_node *curr_node)
 {
-  // cprintf("AQ SWAPPING: %d and its prev node!\n", curr_node->page_index);
   struct queue_node *prev_node = curr_node->prev;
   struct queue_node *maybeLeft, *maybeRight;
 

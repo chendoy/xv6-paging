@@ -2,8 +2,7 @@
 #include "stat.h"
 #include "user.h"
 
-#define BUF_PAGES 14
-char buf[BUF_PAGES * 4096];
+#define PGSIZE 4096
 
 void simple_printf_test()
 {
@@ -42,9 +41,15 @@ void simple_fork_test()
 
 void pagefault_test()
 {
-    printf(1, "\n-------- pagefault_test --------\n");
-    memset(buf, 'a', BUF_PAGES * 4096);
-    printf(1, "buf[0] = %c, buf[mid] = %c, buf[end] = %c\n", buf[0], buf[ (BUF_PAGES/2) * 4096 - 1], buf[BUF_PAGES * 4096 - 1]);
+    // printf(1, "\n-------- pagefault_test --------\n");
+    int len = 15 * PGSIZE;
+    char *arr = (char*)malloc(len);
+    arr++;
+    memset((void*)arr, '0', len);
+    // memset((void*)arr, '1', len);
+    // memset((void*)arr, '2', len);
+    // arr[len / 2 - 1] = '2';
+    // arr[0] = '3';
     return;
 }
 
