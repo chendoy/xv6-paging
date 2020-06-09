@@ -1780,7 +1780,7 @@ main(int argc, char *argv[])
   exitiputtest();
   iputtest();
 
-  mem();
+  // mem();
   pipe1();
   preempt();
   exitwait();
