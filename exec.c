@@ -23,7 +23,7 @@ struct file* swapfile_backup;
 void 
 backup(struct proc* curproc)
 {  
-  cprintf("exec now\n");
+  // cprintf("exec now\n");
   memmove((void*)ramPagesBackup, curproc->ramPages, 16 * sizeof(struct page));
   memmove((void*)swappedPagesBackup, curproc->swappedPages, 16 * sizeof(struct page));
   num_ram_backup = curproc->num_ram; 

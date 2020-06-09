@@ -91,47 +91,44 @@ main(int argc, char *argv[])
   iputtest();
       b3:	e8 58 00 00 00       	call   110 <iputtest>
 
-  // mem();
+  mem();
+      b8:	e8 b3 0c 00 00       	call   d70 <mem>
   pipe1();
-      b8:	e8 43 09 00 00       	call   a00 <pipe1>
-  // preempt();
+      bd:	e8 3e 09 00 00       	call   a00 <pipe1>
+  preempt();
+      c2:	e8 d9 0a 00 00       	call   ba0 <preempt>
   exitwait();
-      bd:	e8 1e 0c 00 00       	call   ce0 <exitwait>
+      c7:	e8 14 0c 00 00       	call   ce0 <exitwait>
 
   rmdot();
-      c2:	e8 29 27 00 00       	call   27f0 <rmdot>
+      cc:	e8 1f 27 00 00       	call   27f0 <rmdot>
   fourteen();
-      c7:	e8 e4 25 00 00       	call   26b0 <fourteen>
+      d1:	e8 da 25 00 00       	call   26b0 <fourteen>
   bigfile();
-      cc:	e8 0f 24 00 00       	call   24e0 <bigfile>
+      d6:	e8 05 24 00 00       	call   24e0 <bigfile>
   subdir();
-      d1:	e8 4a 1c 00 00       	call   1d20 <subdir>
+      db:	e8 40 1c 00 00       	call   1d20 <subdir>
   linktest();
-      d6:	e8 f5 14 00 00       	call   15d0 <linktest>
+      e0:	e8 eb 14 00 00       	call   15d0 <linktest>
   unlinkread();
-      db:	e8 60 13 00 00       	call   1440 <unlinkread>
+      e5:	e8 56 13 00 00       	call   1440 <unlinkread>
   dirfile();
-      e0:	e8 8b 28 00 00       	call   2970 <dirfile>
+      ea:	e8 81 28 00 00       	call   2970 <dirfile>
   iref();
-      e5:	e8 86 2a 00 00       	call   2b70 <iref>
+      ef:	e8 7c 2a 00 00       	call   2b70 <iref>
   forktest();  
-      ea:	e8 a1 2b 00 00       	call   2c90 <forktest>
+      f4:	e8 97 2b 00 00       	call   2c90 <forktest>
   bigdir();
-      ef:	e8 fc 1a 00 00       	call   1bf0 <bigdir>
+      f9:	e8 f2 1a 00 00       	call   1bf0 <bigdir>
 
   uio();
-      f4:	e8 67 34 00 00       	call   3560 <uio>
+      fe:	e8 5d 34 00 00       	call   3560 <uio>
 
   exectest();
-      f9:	e8 b2 08 00 00       	call   9b0 <exectest>
+     103:	e8 a8 08 00 00       	call   9b0 <exectest>
 
   exit();
-      fe:	e8 af 37 00 00       	call   38b2 <exit>
-     103:	66 90                	xchg   %ax,%ax
-     105:	66 90                	xchg   %ax,%ax
-     107:	66 90                	xchg   %ax,%ax
-     109:	66 90                	xchg   %ax,%ax
-     10b:	66 90                	xchg   %ax,%ax
+     108:	e8 a5 37 00 00       	call   38b2 <exit>
      10d:	66 90                	xchg   %ax,%ax
      10f:	90                   	nop
 

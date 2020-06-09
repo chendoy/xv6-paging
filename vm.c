@@ -328,8 +328,8 @@ void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
   page->virt_addr = rounded_virtaddr;
   update_selectionfiled_allocuvm(curproc, page, curproc->num_ram);
 
-  cprintf("filling ram slot: %d\n", curproc->num_ram);
-  cprintf("allocating addr : %p\n\n", rounded_virtaddr);
+  // cprintf("filling ram slot: %d\n", curproc->num_ram);
+  // cprintf("allocating addr : %p\n\n", rounded_virtaddr);
 
   curproc->num_ram++;
   
@@ -345,7 +345,7 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 
       // get info of the page to be evicted
       uint evicted_ind = indexToEvict();
-      cprintf("[allocuvm] index to evict: %d\n",evicted_ind);
+      // cprintf("[allocuvm] index to evict: %d\n",evicted_ind);
       struct page *evicted_page = &curproc->ramPages[evicted_ind];
       int swap_offset = curproc->free_head->off;
 
@@ -370,7 +370,7 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
       curproc->swappedPages[curproc->num_swap].pgdir = curproc->ramPages[evicted_ind].pgdir;
       curproc->swappedPages[curproc->num_swap].swap_offset = swap_offset;
-      cprintf("num swap: %d\n", curproc->num_swap);
+      // cprintf("num swap: %d\n", curproc->num_swap);
       lcr3(V2P(curproc->swappedPages[curproc->num_swap].pgdir)); // flush TLB
       curproc->num_swap ++;
 
@@ -745,7 +745,7 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
     else // no sapce in proc RAM, will swap
     {
       int index_to_evicet = indexToEvict();
-      cprintf("[pagefault] index to evict: %d\n", index_to_evicet);
+      // cprintf("[pagefault] index to evict: %d\n", index_to_evicet);
       struct page *ram_page = &curproc->ramPages[index_to_evicet];
       int swap_offset = curproc->free_head->off;
 
