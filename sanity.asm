@@ -120,14 +120,14 @@ main(void)
   e1:	89 e5                	mov    %esp,%ebp
   e3:	83 ec 14             	sub    $0x14,%esp
     char *arr = (char*)malloc(len);
-  e6:	68 00 f0 00 00       	push   $0xf000
+  e6:	68 00 c0 01 00       	push   $0x1c000
   eb:	e8 30 06 00 00       	call   720 <malloc>
     memset((void*)arr, '0', len);
   f0:	83 c4 0c             	add    $0xc,%esp
     arr++;
   f3:	83 c0 01             	add    $0x1,%eax
     memset((void*)arr, '0', len);
-  f6:	68 00 f0 00 00       	push   $0xf000
+  f6:	68 00 c0 01 00       	push   $0x1c000
   fb:	6a 30                	push   $0x30
   fd:	50                   	push   %eax
   fe:	e8 bd 00 00 00       	call   1c0 <memset>

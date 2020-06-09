@@ -952,6 +952,7 @@ void updateLapa(struct proc* p)
     {
       cur_page->lapa_counter = cur_page->lapa_counter >> 1; // shift right one bit
       cur_page->lapa_counter |= 1 << 31; // turn on MSB
+      *pte &= ~PTE_A;
     }
     else
     {
@@ -976,12 +977,13 @@ void updateNfua(struct proc* p)
     {
       cur_page->nfua_counter = cur_page->nfua_counter >> 1; // shift right one bit
       cur_page->nfua_counter |= 0x80000000; // turn on MSB
+      *pte &= ~PTE_A;
+      
     }
     else
     {
       cur_page->nfua_counter = cur_page->nfua_counter >> 1; // just shit right one bit
     }
-    *pte &= ~PTE_A;
   }
 }
 uint indexToEvict()
@@ -1039,12 +1041,13 @@ uint lapa()
   struct page *ramPages = curproc->ramPages;
   /* find the page with the smallest number of '1's */
   int i;
-  uint minNumOfOnes = countSetBits(ramPages[0].nfua_counter);
+  uint minNumOfOnes = countSetBits(ramPages[0].lapa_counter);
   uint minloc = 0;
   uint instances = 0;
 
   for(i = 1; i < MAX_PSYC_PAGES; i++)
   {
+    // cprintf("i = %d, lapa_counter : %d\n", i, ramPages[i].lapa_counter);
     uint numOfOnes = countSetBits(ramPages[i].lapa_counter);
     if(numOfOnes < minNumOfOnes)
     {
@@ -1056,9 +1059,21 @@ uint lapa()
       instances++;
   }
   if(instances > 1) // more than one counter with minimal number of 1's
-    minloc = nfua(); // re-use of nfua code
-  
-  return minloc;
+  {
+      uint minvalue = ramPages[minloc].lapa_counter;
+      for(i = 1; i < MAX_PSYC_PAGES; i++)
+      {
+        uint numOfOnes = countSetBits(ramPages[i].lapa_counter);
+        if(numOfOnes == minNumOfOnes && ramPages[i].lapa_counter < minvalue)
+        {
+          minloc = i;
+          minvalue = ramPages[i].lapa_counter;
+        }
+      }
+      return minloc;
+  }
+  else
+    return minloc;
 }
 uint nfua()
 {

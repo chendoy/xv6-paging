@@ -42,7 +42,7 @@ void simple_fork_test()
 void pagefault_test()
 {
     // printf(1, "\n-------- pagefault_test --------\n");
-    int len = 15 * PGSIZE;
+    int len = 28 * PGSIZE;
     char *arr = (char*)malloc(len);
     arr++;
     memset((void*)arr, '0', len);

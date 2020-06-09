@@ -1,5 +1,5 @@
 80100000 .text
-80108ea0 .rodata
+80108f40 .rodata
 8010a000 .data
 8010c520 .bss
 00000000 .debug_line
@@ -16,7 +16,7 @@
 8010c558 panicked
 80100410 consputc
 80100580 printint
-80108f10 digits.1643
+80108fb0 digits.1643
 00000000 exec.c
 00000000 file.c
 00000000 fs.c
@@ -34,9 +34,9 @@
 00000000 kalloc.c
 00000000 kbd.c
 8010c5d4 shift.1456
-80109300 shiftcode
-80109200 togglecode
-801091e0 charcode.1457
+801093a0 shiftcode
+801092a0 togglecode
+80109280 charcode.1457
 8010a200 normalmap
 8010a100 shiftmap
 8010a000 ctlmap
@@ -55,12 +55,12 @@
 80103fc0 allocproc
 8010c000 first.1714
 8010c5d8 initproc
-8010969c states.1740
+8010973c states.1740
 00000000 sleeplock.c
 00000000 spinlock.c
 00000000 string.c
 00000000 syscall.c
-80109720 syscalls
+801097c0 syscalls
 00000000 sysfile.c
 80105790 argfd.constprop.0
 00000000 sysproc.c
@@ -151,7 +151,7 @@
 80106b44 vector21
 80100040 binit
 80107153 vector177
-80108470 lapa
+80108460 lapa
 80112fe0 ramPagesBackup
 80106ead vector118
 80106cfd vector70
@@ -177,7 +177,7 @@
 80101b70 iput
 80106f43 vector133
 80106d18 vector73
-80108d10 countSetBits
+80108dc0 countSetBits
 80106fc7 vector144
 801074ef vector254
 80101800 readsb
@@ -224,7 +224,7 @@
 80102c20 freerange
 80106eec vector125
 80102b40 kfree_nocheck
-80108700 allocuvm
+80108770 allocuvm
 801082a0 getNextFreeRamIndex
 801065a1 trapret
 80107327 vector216
@@ -239,7 +239,7 @@
 8010d5e0 stack
 80106f67 vector136
 80106aed vector10
-80108d30 swapAQ
+80108de0 swapAQ
 801072af vector206
 80101b20 iunlock
 80106480 sys_sleep
@@ -268,7 +268,7 @@
 80106faf vector142
 80106e0b vector100
 80107273 vector201
-801086e0 allocuvm_paging
+80108750 allocuvm_paging
 80107e30 clearpteu
 801042d0 myproc
 801065b0 tvinit
@@ -301,7 +301,7 @@
 80107f50 getSwappedPageIndex
 80197588 end
 8010725b vector199
-801083b0 aq
+801083e0 aq
 80106f2b vector131
 801074d7 vector252
 801013b0 filewrite
@@ -418,7 +418,7 @@
 80106da8 vector89
 80106d9f vector88
 80106660 trap
-80108530 allocuvm_withswap
+801085a0 allocuvm_withswap
 80106530 sys_uptime
 8010716b vector179
 80106bb9 vector34
@@ -429,7 +429,7 @@
 8010733f vector218
 80104210 pinit
 80107ae0 deallocuvm
-80108c20 scfifo
+80108cd0 scfifo
 80107393 vector225
 801030f0 lapicid
 801071cb vector187
@@ -470,7 +470,7 @@
 8010704b vector155
 801074b3 vector249
 801001e0 brelse
-80108430 nfua
+80108c90 nfua
 801074bf vector250
 80106ee3 vector124
 80106e65 vector110
@@ -481,9 +481,9 @@
 80106f73 vector137
 8010c460 _binary_initcode_start
 8010557b swtch
-80108520 indexToEvict
+80108590 indexToEvict
 8010749b vector247
-80108340 updateNfua
+80108360 updateNfua
 80106b4d vector22
 8010727f vector202
 80107760 seginit
@@ -498,7 +498,7 @@
 80102640 readFromSwapFile
 801001a0 bwrite
 801073f3 vector233
-80108dd0 updateAQ
+80108e80 updateAQ
 80100a10 backup
 80107620 printlist
 80106630 idtinit
@@ -535,7 +535,7 @@
 80106dcc vector93
 801034c0 initlog
 801071d7 vector188
-80108b50 pagefault
+80108bc0 pagefault
 80106c37 vector48
 8010c55c free_tail_backup
 80102870 iderw
@@ -545,7 +545,7 @@
 80102d40 kalloc
 80113d40 devsw
 80106420 sys_getpid
-80108850 handle_pagedout
+801088c0 handle_pagedout
 80107e60 cowuvm
 80106d57 vector80
 8010710b vector171
