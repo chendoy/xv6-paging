@@ -601,7 +601,7 @@ pagefault(void)
   pte_t *pte;
   uint va = rcr2(); //  the address retreived from the cr2 register, contains pagefault addr
 
-
+  curproc->totalPgfltCount++;
   char *start_page = (char*)PGROUNDDOWN((uint)va); //round the va to closet 2 exponenet, to get the start of the page addr
   pte = walkpgdir(curproc->pgdir, start_page, 0);
 

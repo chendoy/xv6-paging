@@ -187,11 +187,11 @@ exec(char *path, char **argv)
   int ind;
   for(ind = 0; ind < MAX_PSYC_PAGES; ind++)
   {
-    // if(curproc->ramPages[ind].isused)
-    curproc->ramPages[ind].pgdir = pgdir;
+    if(curproc->ramPages[ind].isused)
+      curproc->ramPages[ind].pgdir = pgdir;
 
-    // if(curproc->swappedPages[ind].isused)
-    curproc->swappedPages[ind].pgdir = pgdir;
+    if(curproc->swappedPages[ind].isused)
+      curproc->swappedPages[ind].pgdir = pgdir;
   }
 
   // Commit to the user image.

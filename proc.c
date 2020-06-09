@@ -126,6 +126,8 @@ found:
 
     p->num_ram = 0;
     p->num_swap = 0;
+    p->totalPgfltCount = 0;
+    p->totalPgoutCount = 0;
     if(p->selection == SCFIFO)
     {
       p->clockHand = 0;
@@ -268,6 +270,11 @@ fork(void)
 
   if(curproc->pid > 2) // not init or shell
   {
+    np->totalPgfltCount = 0;
+    np->totalPgoutCount = 0;
+    np->num_ram = curproc->num_ram;
+    np->num_swap = curproc->num_swap;
+    
     int i;
     for(i = 0; i < MAX_PSYC_PAGES; i++)
     {
@@ -676,7 +683,8 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+    cprintf("<pid: %d>  <state: %s>  <name: %s> <num_ram: %d> <num swap: %d> <page faults: %d> <total paged out: %d>",
+     p->pid, state, p->name, p->num_ram, p->num_swap, p->totalPgfltCount, p->totalPgoutCount);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)

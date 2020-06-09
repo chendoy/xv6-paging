@@ -95,7 +95,8 @@ struct proc {
   struct queue_node* queue_head;
   struct queue_node* queue_tail;
   int selection;
-  
+  uint totalPgfltCount;
+  uint totalPgoutCount;
 
 };
 
