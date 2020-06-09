@@ -274,7 +274,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   a = PGROUNDUP(oldsz);
   for(; a < newsz; a += PGSIZE){
-
+    
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
@@ -293,6 +293,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
     if(curproc->pid > 2) 
     {
+        cprintf("going to execute: allocuvm_paging\n");
         allocuvm_paging(curproc, pgdir, (char *)a);
     }
     
@@ -327,7 +328,7 @@ void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
   update_selectionfiled_allocuvm(curproc, page, curproc->num_ram);
 
   cprintf("filling ram slot: %d\n", curproc->num_ram);
-  cprintf("allocating addr : %p\n", rounded_virtaddr);
+  cprintf("allocating addr : %p\n\n", rounded_virtaddr);
 
   curproc->num_ram++;
   // cprintf("num ram : %d\n", curproc->num_ram);
@@ -338,6 +339,7 @@ void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 void
 allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 {
+  cprintf("--allocate with swap--\n\n");
    if(curproc-> num_swap >= MAX_PSYC_PAGES)
         panic("exceeded max swap pages");
       // cprintf("alloc, write to swap\n");
@@ -360,10 +362,10 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
         kfree((char*)curproc->free_head->prev);
       }
 
-      // cprintf("before write to swap\n");
+      cprintf("before write to swap\n");
       if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
         panic("allocuvm: writeToSwapFile");
-      // cprintf("after write to swap\n");
+      cprintf("after write to swap\n");
 
       curproc->swappedPages[curproc->num_swap].isused = 1;
       curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
@@ -374,7 +376,9 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       curproc->num_swap ++;
 
       // cprintf("num swap : %d\n", curproc->num_swap);
+
       pte_t *evicted_pte = walkpgdir(curproc->ramPages[evicted_ind].pgdir, (void*)curproc->ramPages[evicted_ind].virt_addr, 0);
+
 
       if(!(*evicted_pte & PTE_P))
         panic("allocuvm: swap: ram page not present");
@@ -399,20 +403,16 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 void
 update_selectionfiled_allocuvm(struct proc* curproc, struct page* page, int page_ramindex)
 {
-  if(curproc->selection == SCFIFO)
-  {
-    page->ref_bit = 0;
-  }
-  if(curproc->selection == NFUA)
-  {
+
+   #if SELECTION == NFUA
     page->nfua_counter = 0;
-  }
-  if(curproc->selection == LAPA)
-  {
-    page->lapa_counter = 0xFFFFFFFF;
-  }
-  if(curproc -> selection == AQ)
-  {
+  #endif
+
+  #if SELECTION == LAPA
+    page->lapa_counter =  0xFFFFFFFF;
+  #endif
+
+  #if SELECTION == AQ
     struct queue_node * node = (struct queue_node*)kalloc();
     node->page_index = page_ramindex;
     cprintf("page ram index is: %d\n", page_ramindex);
@@ -432,7 +432,8 @@ update_selectionfiled_allocuvm(struct proc* curproc, struct page* page, int page
       curproc->queue_head = node;
       curproc->queue_head->prev = 0;
     }
-  }
+  #endif
+
 
 }
 
@@ -700,11 +701,6 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
     int index = getSwappedPageIndex(start_page); // get swap page index
     struct page *swap_page = &curproc->swappedPages[index];
 
-    // cprintf("\n\nfree blocks list before readFromSwapFile:\n");
-    // printlist();
-
-    // cprintf("going to read from offset %d\n", swap_page->swap_offset);
-
     if(readFromSwapFile(curproc, buffer, swap_page->swap_offset, PGSIZE) < 0)
       panic("allocuvm: readFromSwapFile");
 
@@ -776,7 +772,7 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
       cprintf("swap off : %d\n", swap_offset);
       if(writeToSwapFile(curproc, (char*)ram_page->virt_addr, swap_offset, PGSIZE) < 0)   // buffer now has bytes from swapped page (faulty one)
         panic("allocuvm: writeToSwapFile");
-
+    
       swap_page->virt_addr = ram_page->virt_addr;
       swap_page->pgdir = ram_page->pgdir;
       swap_page->isused = 1;
@@ -792,8 +788,8 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
       *pte &= 0xFFF;   // ???
       
       // prepare to-be-swapped page in RAM to move to swap file
-      *pte |= PTE_PG;                              // turn "paged-out" flag on
-      *pte &= ~PTE_P;                              // turn "present" flag off
+      *pte |= PTE_PG;     // turn "paged-out" flag on
+      *pte &= ~PTE_P;     // turn "present" flag off
 
       ram_page->virt_addr = start_page;
       update_selectionfiled_pagefault(curproc, ram_page, index_to_evicet);
@@ -808,23 +804,15 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
 void
 update_selectionfiled_pagefault(struct proc* curproc, struct page* page, int page_ramindex)
 {
-  if(curproc->selection == SCFIFO)
-  {
-    page->ref_bit = 1;
-  }
-
-  if(curproc -> selection == NFUA)
-  {
+  #if SELECTION == NFUA
     page->nfua_counter = 0;
-  }
+  #endif
 
-  if(curproc -> selection == LAPA)
-  {
+  #if SELECTION == LAPA
     page->lapa_counter =  0xFFFFFFFF;
-  }
+  #endif
 
-  if(curproc -> selection == AQ)
-  {
+  #if SELECTION == AQ
     struct queue_node * node = (struct queue_node*)kalloc();
     node->page_index = page_ramindex;
     if(curproc->queue_head == 0 && curproc->queue_tail ==0)  //the first queue_node 
@@ -843,7 +831,10 @@ update_selectionfiled_pagefault(struct proc* curproc, struct page* page, int pag
       curproc->queue_head = node;
       curproc->queue_head->prev = 0;
     }
-  }
+  #endif
+
+
+
 }
 
 pde_t*
@@ -1003,35 +994,24 @@ void updateNfua(struct proc* p)
   }
 }
 uint indexToEvict()
-{
-  struct proc* curproc = myproc();
-  
-  if(curproc->selection == DUMMY)
-  {
+{  
+  #if SELECTION==DUMMY
     return 11;
-  }
-  
-  if(curproc->selection == SCFIFO)
-  {
+  #endif
+  #if SELECTION==SCFIFO
     return scfifo();
-  }
-
-  if(curproc->selection == NFUA)
-  {
+  #endif
+  #if SELECTION==NFUA
     return nfua();
-  }
-
-  if(curproc->selection == LAPA)
-  {
+  #endif
+  #if SELECTION==LAPA
     return lapa();
-  }
-
-  if(curproc->selection == AQ)
-  {
+  #endif
+  #if SELECTION==AQ
     return aq();
-  }
-  return scfifo();
-  
+  #else
+  return 11; // default
+  #endif
 }
 
 uint aq()
@@ -1126,7 +1106,6 @@ uint scfifo()
           {
             curproc->clockHand = i + 1;
           }
-          cprintf("scfifo returned %d\n", i);
           return i;
        }
        else

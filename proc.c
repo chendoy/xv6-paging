@@ -116,8 +116,6 @@ found:
 
   if(p->pid > 2) {
 
-    p->selection = AQ;  //TODO: update dynamically
-
     if(createSwapFile(p) != 0)
       panic("allocproc: createSwapFile");
     
@@ -172,8 +170,6 @@ found:
 
     }
   }
-
-
   return p;
 }
 
@@ -390,10 +386,16 @@ exit(void)
     }
   }
 
+  #if VERBOSE_PRINT == TRUE
+      cprintf("<%d / %d>\n", getCurrentFreePages(), getTotalFreePages());
+  #endif
+
   begin_op();
   iput(curproc->cwd);
   end_op();
   curproc->cwd = 0;
+
+  
 
   if(curproc->pid > 2) {
     if (removeSwapFile(curproc) != 0)
@@ -415,7 +417,9 @@ exit(void)
   }
 
   // Jump into the scheduler, never to return.
+  
   curproc->state = ZOMBIE;
+  
   sched();
   panic("zombie exit");
 }
@@ -683,19 +687,20 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("<pid: %d>  <state: %s>  <name: %s> <num_ram: %d> <num swap: %d> <page faults: %d> <total paged out: %d>",
+    cprintf("<pid: %d> <state: %s> <name: %s> <num_ram: %d> <num swap: %d> <page faults: %d> <total paged out: %d>\n",
      p->pid, state, p->name, p->num_ram, p->num_swap, p->totalPgfltCount, p->totalPgoutCount);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)
         cprintf(" %p", pc[i]);
     }
+    cprintf("\n<%d / %d>", getCurrentFreePages(), getTotalFreePages());
     cprintf("\n");
   }
 }
 
 int
-getTotalFreePages(void)
+getCurrentFreePages(void)
 {
   struct proc *p;
   int sum = 0;
@@ -705,9 +710,25 @@ getTotalFreePages(void)
   {
     if(p->state == UNUSED)
       continue;
-    // sum += MAX_PSYC_PAGES - p->nummemorypages;
+    sum += MAX_PSYC_PAGES - p->num_ram;
     pcount++;
   }
   release(&ptable.lock);
   return sum;
+}
+
+int
+getTotalFreePages(void)
+{
+  struct proc *p;
+  int pcount = 0;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->state == UNUSED)
+      continue;
+    pcount++;
+  }
+  release(&ptable.lock);
+  return pcount * MAX_PSYC_PAGES;
 }

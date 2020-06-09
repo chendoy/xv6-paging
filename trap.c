@@ -122,9 +122,15 @@ trap(struct trapframe *tf)
      {
       if(myproc()->pid > 2) 
       {
+        #if SELECTION==NFUA
         updateNfua(myproc());
+        #endif
+        #if SELECTION==LAPA
         updateLapa(myproc());
+        #endif
+        #if SELECTION==AQ
         updateAQ(myproc());
+        #endif
       }
       yield();
      }

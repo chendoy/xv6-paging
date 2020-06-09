@@ -20,9 +20,9 @@ main(void)
    e:	83 ec 04             	sub    $0x4,%esp
     // simple_printf_test();
     // simple_buffer_test();
-    simple_fork_test();
-  11:	e8 6a 00 00 00       	call   80 <simple_fork_test>
-    // pagefault_test();
+    // simple_fork_test();
+    pagefault_test();
+  11:	e8 ca 00 00 00       	call   e0 <pagefault_test>
     exit();
   16:	e8 77 03 00 00       	call   392 <exit>
   1b:	66 90                	xchg   %ax,%ax

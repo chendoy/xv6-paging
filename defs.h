@@ -141,6 +141,7 @@ int             wait(void);
 void            wakeup(void*);
 void            yield(void);
 int             getTotalFreePages(void);
+int             getCurrentFreePages(void);
 void            copyAQ(struct proc* np);
 
 // swtch.S
@@ -236,3 +237,5 @@ void            update_selectionfiled_pagefault(struct proc*, struct page*, int)
 #define SCFIFO 3
 #define AQ     4
 #define DUMMY  5
+#define TRUE   6
+#define FALSE  7
