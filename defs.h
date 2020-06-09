@@ -10,7 +10,8 @@ struct sleeplock;
 struct stat;
 struct superblock;
 struct fblock;
-
+struct queue_node;
+struct page;
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -140,6 +141,7 @@ int             wait(void);
 void            wakeup(void*);
 void            yield(void);
 int             getTotalFreePages(void);
+void            copyAQ(struct proc* np);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -215,10 +217,15 @@ uint            lapa();
 int             getNextFreeRamIndex();
 void            updateNfua(struct proc*);
 void            updateLapa(struct proc*);
+void            updateAQ  (struct proc*);
 void            allocuvm_noswap(struct proc*, pde_t *, char*);
 void            allocuvm_paging(struct proc* , pde_t *, char*);
 void            allocuvm_withswap(struct proc*, pde_t *, char*);
-uint            countSetBits(uint n); 
+uint            countSetBits(uint n);
+void            swapAQ(struct queue_node*);
+void            update_selectionfiled_allocuvm(struct proc*, struct page* , int);
+void            update_selectionfiled_pagefault(struct proc*, struct page*, int);
+
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

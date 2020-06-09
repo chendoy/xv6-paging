@@ -1,5 +1,4 @@
 #!/bin/bash
 
 clear
-make clean
-make qemu $1
+make clean qemu $1

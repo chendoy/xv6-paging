@@ -12,6 +12,9 @@ extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 static char buffer[PGSIZE];
 
+void  handle_cow_pagefault(struct proc*, pte_t*, uint);
+void  handle_pagedout(struct proc*, char*, pte_t*);
+
 void printlist()
 {
   cprintf("printing list:\n");
@@ -22,6 +25,19 @@ void printlist()
     curr = curr->next;
     if(curr == 0)
       break;
+  }
+  cprintf("\n");
+}
+
+void printaq()
+{
+  cprintf("\n\n\n\nprinting aq:\n");
+  cprintf("head: %d, tail: %d\n", myproc()->queue_head->page_index, myproc()->queue_tail->page_index);
+  struct queue_node *curr = myproc()->queue_head;
+  while(curr != 0)
+  {
+    cprintf("%d -> ", curr->page_index);
+    curr = curr->next;
   }
   cprintf("\n");
 }
@@ -241,7 +257,7 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
 int
 allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
-  // cprintf("*** ALLOCUVM ***\n");
+  cprintf("*** ALLOCUVM ***\n");
   char *mem;
   uint a;
   struct proc* curproc = myproc();
@@ -297,18 +313,18 @@ allocuvm_paging(struct proc * curproc, pde_t *pgdir, char* rounded_virtaddr)
 void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 {
 // cprintf("allocuvm, not init or shell, there is space in RAM\n");
-  int new_index = getNextFreeRamIndex();
 
-  struct page *page = &curproc->ramPages[new_index];
+  struct page *page = &curproc->ramPages[curproc->num_ram];
 
   page->isused = 1;
   page->pgdir = pgdir;
   page->swap_offset = -1;
   page->virt_addr = rounded_virtaddr;
-  update_selectionfiled_allocuvm(curproc, page, new_index);
- 
+  update_selectionfiled_allocuvm(curproc, page, curproc->num_ram);
 
-  cprintf("filling ram slot: %d\n", new_index);
+  cprintf("filling ram slot: %d\n", curproc->num_ram);
+  cprintf("allocating addr : %p\n", rounded_virtaddr);
+
   curproc->num_ram++;
   // cprintf("num ram : %d\n", curproc->num_ram);
 }
@@ -340,8 +356,10 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
         kfree((char*)curproc->free_head->prev);
       }
 
+      // cprintf("before write to swap\n");
       if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
         panic("allocuvm: writeToSwapFile");
+      // cprintf("after write to swap\n");
 
       curproc->swappedPages[curproc->num_swap].isused = 1;
       curproc->swappedPages[curproc->num_swap].virt_addr = curproc->ramPages[evicted_ind].virt_addr;
@@ -393,6 +411,7 @@ update_selectionfiled_allocuvm(struct proc* curproc, struct page* page, int page
   {
     struct queue_node * node = (struct queue_node*)kalloc();
     node->page_index = page_ramindex;
+    cprintf("page ram index is: %d\n", page_ramindex);
     if(curproc->queue_head == 0 && curproc->queue_tail ==0)  //the first queue_node 
     {
       curproc-> queue_head = node;
@@ -406,7 +425,7 @@ update_selectionfiled_allocuvm(struct proc* curproc, struct page* page, int page
     {
       curproc->queue_head->prev = node;
       node->next = curproc->queue_head;
-      curproc->queue_head = curproc;
+      curproc->queue_head = node;
     }
   }
 
@@ -586,7 +605,7 @@ pagefault(void)
     handle_pagedout(curproc, start_page, pte);
   } 
   else
-  {   
+  {
     cprintf("pagefault - %s (pid %d) - COW\n", curproc->name, curproc->pid);
     // we should now do COW mechanism for kernel addresses
     if(va >= KERNBASE || pte == 0)
@@ -596,7 +615,7 @@ pagefault(void)
       return;
     }
 
-    if(!(pte = walkpgdir(curproc->pgdir, (void*)va, 0)))
+    if((pte = walkpgdir(curproc->pgdir, (void*)va, 0)) == 0)
     {
       panic("pagefult (cow): pte is 0");
     }
@@ -816,7 +835,7 @@ update_selectionfiled_pagefault(struct proc* curproc, struct page* page, int pag
     {
       curproc->queue_head->prev = node;
       node->next = curproc->queue_head;
-      curproc->queue_head = curproc;
+      curproc->queue_head = node;
     }
   }
 }
@@ -1005,34 +1024,37 @@ uint indexToEvict()
   {
     return aq();
   }
-  // #if SELECTION==DUMMUY
-  //   return 14;
-  // #endif
-  
-  // #if SELECTION==SCFIFO
-  //  return scfifo();
-  // #endif
-
-  // #if SELECTION==NFUA
-  //   return nfua();
-  // #endif
-
-  // #if SELECTION==LAPA
-  
-  // #endif
-
-  // #if SELECTION==AQ
-  
-  // #endif
-
-  // /* DEFAULT */
   return scfifo();
   
 }
 
 uint aq()
 {
-  return 0;
+  struct proc* curproc = myproc();
+  int res = curproc->queue_tail->page_index;
+  struct queue_node* new_tail;
+  if(curproc->queue_tail == 0 || curproc->queue_head == 0)
+  {
+    panic("AQ INDEX SELECTION: empty queue cann't make index selection!");
+  }
+
+  if(curproc->queue_tail == curproc->queue_head)
+  {
+    curproc->queue_head=0;
+    new_tail = 0;
+  }
+  else
+  {
+    curproc->queue_tail->prev->next = 0;
+    new_tail =  curproc->queue_tail->prev;
+  }
+
+  kfree((char*)curproc->queue_tail);
+  curproc->queue_tail = new_tail;
+  
+  return  res;
+
+
 }
 uint lapa()
 {
@@ -1087,52 +1109,152 @@ uint scfifo()
    int i;
     for(i = curproc->clockHand ; i < MAX_PSYC_PAGES ; i++)
     {
-       if(curproc->ramPages[i].ref_bit == 0)
+      pte_t *pte = walkpgdir(curproc->ramPages[i].pgdir, curproc->ramPages[i].virt_addr, 0);
+       if(!(*pte & PTE_A)) //ref bit is off
        {
-          curproc->ramPages[i].ref_bit = 1;
           if(curproc->clockHand == MAX_PSYC_PAGES - 1)
           {
             curproc->clockHand = 0;
           }
           else
           {
-            curproc->clockHand = curproc->clockHand + 1;
+            curproc->clockHand = i + 1;
           }
           cprintf("scfifo returned %d\n", i);
           return i;
        }
        else
        {
-          curproc->ramPages[i].ref_bit = 0; 
+          // turn off acess bit
+          *pte &= ~PTE_A; 
        }
     }
     
     int j;
     for(j=0; j< curproc->clockHand ;j++)
     {
-       if(curproc->ramPages[j].ref_bit == 0)
+      pte_t *pte = walkpgdir(curproc->ramPages[j].pgdir, curproc->ramPages[j].virt_addr, 0);
+       if(!(*pte & PTE_A)) //ref bit is off
        {
-          curproc->ramPages[j].ref_bit = 1;
-          curproc->clockHand = curproc->clockHand + 1;
-
+          curproc->clockHand = j + 1;
           cprintf("scfifo returned %d\n", j);
           return j;
        }
        else
        {
-          curproc->ramPages[j].ref_bit = 0; 
+          // turn off acess bit
+          *pte &= ~PTE_A;  
        }
     }
-    cprintf("scfifo returned %d\n", -1);
+    panic("scfifo: not found any index!");
     return -1;
 }
 
-uint countSetBits(uint n) 
-{ 
-    uint count = 0; 
-    while (n) { 
-        count += n & 1; 
-        n >>= 1; 
-    } 
-    return count; 
-} 
+uint countSetBits(uint n)
+{
+    uint count = 0;
+    while (n) {
+        count += n & 1;
+        n >>= 1;
+    }
+    return count;
+}
+
+
+void updateAQ(struct proc* p)
+{
+  struct queue_node *curr_node = p->queue_tail;
+  struct page *ramPages = p->ramPages;
+  struct page *curr_page = &ramPages[curr_node->page_index];
+  struct page *prev_page;
+  pte_t *pte_curr;
+  pte_t *pte_prev;
+
+  if(p->queue_tail == 0 || p->queue_head == 0)
+    return;
+    
+  if(curr_node->prev == 0)
+    return;
+  
+  prev_page = &ramPages[curr_node->prev->page_index];
+
+  cprintf("found page index: %d\n", p->queue_tail->page_index);
+
+  
+  while(curr_node != 0)
+  {
+    printaq();
+    cprintf("cur page virtadd :%p \n", curr_page->virt_addr);
+    cprintf("cur page idx :%p \n", curr_node->page_index);
+    if((pte_curr = walkpgdir(curr_page->pgdir, curr_page->virt_addr, 0)) == 0)
+      panic("updateAQ: no pte");
+    cprintf("after first walkpgdir\n", *pte_curr);
+    if(*pte_curr & PTE_A) // an accessed page
+    {
+      cprintf("inside first if: \"an accessed page\"\n");
+      if(curr_node->prev != 0) // there is a page behind it
+      {
+        if((pte_prev = walkpgdir(prev_page->pgdir, prev_page->virt_addr, 0)) == 0)
+          panic("updateAQ: no pte");
+
+        if(!(*pte_prev & PTE_A)) // was not accessed, will swap
+          swapAQ(curr_node);
+      }
+      *pte_curr &= ~PTE_A;
+    }
+    curr_node = curr_node->prev;
+    cprintf("moved to node: %d \n", curr_node->page_index);
+    if(curr_node != 0)
+    {
+      curr_page = &ramPages[curr_node->page_index];
+      prev_page = &ramPages[curr_node->prev->page_index];
+    }
+    
+  }
+}
+
+
+// will swap curr_node with the node preceding it in the queue.
+// assumes there exist a page preceding curr_node.
+// queue structure at entry point:
+// [maybeLeft?] <-> [prev_node] <-> [curr_node] <-> [maybeRight?] 
+
+void swapAQ(struct queue_node *curr_node)
+{
+  cprintf("AQ SWAPPING: %d and its prev node!\n", curr_node->page_index);
+  struct queue_node *prev_node = curr_node->prev;
+  struct queue_node *maybeLeft, *maybeRight;
+
+  if(curr_node == myproc()->queue_tail)
+  {
+    myproc()->queue_tail = prev_node;
+    myproc()->queue_tail->next = 0;
+  }
+
+  if(prev_node == myproc()->queue_head)
+  {
+    myproc()->queue_head = curr_node;
+    myproc()->queue_head->prev = 0;
+  }
+
+  // saving maybeLeft and maybeRight pointers for later
+    maybeLeft = prev_node->prev;
+    maybeRight = curr_node->next;
+
+  // re-connecting prev_node and curr_node (simple)
+  curr_node->next = prev_node;
+  prev_node->prev = curr_node;
+
+  // updating maybeLeft and maybeRight
+  if(maybeLeft != 0)
+  {
+    curr_node->prev = maybeLeft;
+    maybeLeft->next = curr_node;    
+  }
+  
+  if(maybeRight != 0)
+  {
+    prev_node->next = maybeRight;
+    maybeRight->prev = prev_node;
+  }
+}

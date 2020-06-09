@@ -120,8 +120,12 @@ trap(struct trapframe *tf)
   if(myproc() && myproc()->state == RUNNING &&
      tf->trapno == T_IRQ0+IRQ_TIMER)
      {
-      updateNfua(myproc());
-      updateLapa(myproc());
+      if(myproc()->pid > 2) 
+      {
+        updateNfua(myproc());
+        updateLapa(myproc());
+        updateAQ(myproc());
+      }
       yield();
      }
 

@@ -118,7 +118,7 @@ found:
 
   if(p->pid > 2) {
 
-    p->selection = LAPA;  //TODO: DELETE THIS
+    p->selection = AQ;  //TODO: update dynamically
 
     if(createSwapFile(p) != 0)
       panic("allocproc: createSwapFile");
@@ -310,13 +310,49 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
   pid = np->pid;
 
-
-  
+  //#if(SELECTION==AQ)
+  copyAQ(np);
+  //#endif
   acquire(&ptable.lock);
   np->state = RUNNABLE;
   release(&ptable.lock);
   
   return pid;
+}
+
+void copyAQ(struct proc* np)
+{
+  struct proc* curproc = myproc();
+  struct queue_node *old_curr = curproc->queue_head;
+  struct queue_node *np_curr = 0, *np_prev = 0;
+  np->queue_head = 0;
+  np->queue_tail = 0;
+
+  if(old_curr != 0) // copying first node separately to set new queue_head
+  {
+    np_curr = (struct queue_node*)kalloc();
+    np_curr->page_index = old_curr->page_index;
+    np->queue_head =np_curr;
+    np_curr->prev = 0;
+    np_prev = np_curr;
+    old_curr = old_curr->next;
+  }
+
+  while(old_curr != 0)
+  {
+    np_curr = (struct queue_node*)kalloc();
+    np_curr->page_index = old_curr->page_index;
+    np_curr->prev = np_prev;
+    np_prev->next = np_curr;
+
+    np_prev = np_curr;
+    old_curr = old_curr->next;
+  }
+  if(np->queue_head != 0) // if the queue wasn't empty
+  {
+    np_curr->next = 0;
+    np->queue_tail = np_curr;
+  }
 }
 
 // Exit the current process.  Does not return.
@@ -402,6 +438,14 @@ wait(void)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
+        p->clockHand = 0;
+        p->swapFile = 0;
+        p->free_head = 0;
+        p->free_tail = 0;
+        p->queue_head = 0;
+        p->queue_tail = 0;
+        p->numswappages = 0;
+        p-> nummemorypages = 0;
         memset(p->ramPages, 0, sizeof(p->ramPages));
         memset(p->swappedPages, 0, sizeof(p->swappedPages));
         p->state = UNUSED;

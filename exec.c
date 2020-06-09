@@ -7,6 +7,91 @@
 #include "x86.h"
 #include "elf.h"
 
+
+
+/* zero pages arrays and struct variables, will restore in bad */
+struct page ramPagesBackup[MAX_PSYC_PAGES];
+struct page swappedPagesBackup[MAX_PSYC_PAGES];
+int num_ram_backup=0, num_swap_backup=0, clockhand_backup=0;
+struct fblock* free_head_backup=0, *free_tail_backup=0;
+struct queue_node* queue_head_backup;
+struct queue_node* queue_tail_backup;
+struct file* swapfile_backup;
+
+
+
+void 
+backup(struct proc* curproc)
+{  
+  cprintf("exec now\n");
+  memmove((void*)ramPagesBackup, curproc->ramPages, 16 * sizeof(struct page));
+  memmove((void*)swappedPagesBackup, curproc->swappedPages, 16 * sizeof(struct page));
+  num_ram_backup = curproc->num_ram; 
+  num_swap_backup = curproc->num_swap;
+  free_head_backup = curproc->free_head;
+  free_tail_backup = curproc->free_tail;
+  swapfile_backup = curproc->swapFile;
+  queue_head_backup = curproc->queue_head;
+  queue_tail_backup = curproc->queue_tail;
+  clockhand_backup = curproc->clockHand;
+}
+
+void 
+clean_arrays(struct proc* curproc)
+{
+  memset((void*)curproc->swappedPages, 0, 16 * sizeof(struct page));
+  memset((void*)curproc->ramPages, 0, 16 * sizeof(struct page));
+  curproc->num_ram = 0;
+  curproc->num_swap = 0;
+}
+
+void
+alloc_fresh_fblocklst(struct proc* curproc)
+{
+ /*allocating fresh fblock list */
+  curproc->free_head = (struct fblock*)kalloc();
+  curproc->free_head->prev = 0;
+  curproc->free_head->off = 0 * PGSIZE;
+  struct fblock *prev = curproc->free_head;
+
+  for(int i = 1; i < MAX_PSYC_PAGES; i++)
+  {
+    struct fblock *curr = (struct fblock*)kalloc();
+    curr->off = i * PGSIZE;
+    curr->prev = prev;
+    curr->prev->next = curr;
+    prev = curr;
+  }
+  curproc->free_tail = prev;
+  curproc->free_tail->next = 0;
+}
+
+void
+clean_by_selection(struct proc* curproc)
+{
+  if(curproc->selection == AQ)
+  {
+    curproc->queue_head = 0;
+    curproc->queue_tail = 0;
+    cprintf("cleaning exec queue\n");
+  }
+
+  if(curproc->selection == SCFIFO)
+  {
+    curproc->clockHand = 0;
+  }
+}
+void 
+allocate_fresh(struct proc* curproc)
+{
+  if(createSwapFile(curproc) != 0)
+    panic("exec: create swapfile for exec proc failed");
+  clean_arrays(curproc);
+  alloc_fresh_fblocklst(curproc);
+  clean_by_selection(curproc);
+
+}
+
 int
 exec(char *path, char **argv)
 {
@@ -19,47 +104,11 @@ exec(char *path, char **argv)
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
   
-
-      /* zero pages arrays and struct variables, will restore in bad */
-      struct page ramPagesBackup[MAX_PSYC_PAGES];
-      struct page swappedPagesBackup[MAX_PSYC_PAGES];
-      int num_ram_backup=0, num_swap_backup=0;
-      struct fblock *free_head_backup=0, *free_tail_backup=0;
-
-    if(curproc->pid > 2)
-     {
-      cprintf("exec now\n");
-      memmove((void*)ramPagesBackup, curproc->ramPages, 16 * sizeof(struct page));
-      memmove((void*)swappedPagesBackup, curproc->swappedPages, 16 * sizeof(struct page));
-      num_ram_backup = curproc->num_ram; num_swap_backup = curproc->num_swap;
-
-      free_head_backup = curproc->free_head;
-      free_tail_backup = curproc->free_tail;
-
-      
-      memset((void*)curproc->swappedPages, 0, 16 * sizeof(struct page));
-      memset((void*)curproc->ramPages, 0, 16 * sizeof(struct page));
-      curproc->num_ram = 0; curproc->num_swap = 0;
-
-      /* allocating fresh fblock list */
-      
-      curproc->free_head = (struct fblock*)kalloc();
-      curproc->free_head->prev = 0;
-      curproc->free_head->off = 0 * PGSIZE;
-
-      struct fblock *prev = curproc->free_head;
-
-      for(int i = 1; i < MAX_PSYC_PAGES; i++)
-      {
-        struct fblock *curr = (struct fblock*)kalloc();
-        curr->off = i * PGSIZE;
-        curr->prev = prev;
-        curr->prev->next = curr;
-        prev = curr;
-      }
-      curproc->free_tail = prev;
-      curproc->free_tail->next = 0;
-   }
+  if(curproc->pid > 2)
+  {  
+    backup(curproc);
+    allocate_fresh(curproc);
+  }
 
   begin_op();
 
@@ -138,11 +187,11 @@ exec(char *path, char **argv)
   int ind;
   for(ind = 0; ind < MAX_PSYC_PAGES; ind++)
   {
-    if(curproc->ramPages[ind].isused)
-      curproc->ramPages[ind].pgdir = pgdir;
+    // if(curproc->ramPages[ind].isused)
+    curproc->ramPages[ind].pgdir = pgdir;
 
-    if(curproc->swappedPages[ind].isused)
-      curproc->swappedPages[ind].pgdir = pgdir;
+    // if(curproc->swappedPages[ind].isused)
+    curproc->swappedPages[ind].pgdir = pgdir;
   }
 
   // Commit to the user image.
@@ -151,7 +200,6 @@ exec(char *path, char **argv)
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
-
   switchuvm(curproc);
   freevm(oldpgdir);
   return 0;
@@ -170,7 +218,10 @@ exec(char *path, char **argv)
     curproc->free_tail = free_tail_backup;
     curproc->num_ram = num_ram_backup;
     curproc->num_swap = num_swap_backup;
-
+    curproc->swapFile = swapfile_backup;
+    curproc->clockHand = clockhand_backup;
+    curproc->queue_head = queue_head_backup;
+    curproc->queue_tail = queue_tail_backup;
   }
   
 
