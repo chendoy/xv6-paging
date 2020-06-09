@@ -33,12 +33,16 @@ void printaq()
 {
   cprintf("\n\n\n\nprinting aq:\n");
   cprintf("head: %d, tail: %d\n", myproc()->queue_head->page_index, myproc()->queue_tail->page_index);
+  if(myproc()->queue_head->prev == 0)
+    cprintf("null <-> ");
   struct queue_node *curr = myproc()->queue_head;
   while(curr != 0)
   {
-    cprintf("%d -> ", curr->page_index);
+    cprintf("%d <-> ", curr->page_index);
     curr = curr->next;
   }
+  if(myproc()->queue_tail->next == 0)
+    cprintf("null <-> ");
   cprintf("\n");
 }
 
@@ -426,6 +430,7 @@ update_selectionfiled_allocuvm(struct proc* curproc, struct page* page, int page
       curproc->queue_head->prev = node;
       node->next = curproc->queue_head;
       curproc->queue_head = node;
+      curproc->queue_head->prev = 0;
     }
   }
 
@@ -836,6 +841,7 @@ update_selectionfiled_pagefault(struct proc* curproc, struct page* page, int pag
       curproc->queue_head->prev = node;
       node->next = curproc->queue_head;
       curproc->queue_head = node;
+      curproc->queue_head->prev = 0;
     }
   }
 }
@@ -1178,20 +1184,16 @@ void updateAQ(struct proc* p)
   
   prev_page = &ramPages[curr_node->prev->page_index];
 
-  cprintf("found page index: %d\n", p->queue_tail->page_index);
+  // cprintf("found page index: %d\n", p->queue_tail->page_index);
 
   
   while(curr_node != 0)
   {
-    printaq();
-    cprintf("cur page virtadd :%p \n", curr_page->virt_addr);
-    cprintf("cur page idx :%p \n", curr_node->page_index);
+    // printaq();
     if((pte_curr = walkpgdir(curr_page->pgdir, curr_page->virt_addr, 0)) == 0)
       panic("updateAQ: no pte");
-    cprintf("after first walkpgdir\n", *pte_curr);
     if(*pte_curr & PTE_A) // an accessed page
     {
-      cprintf("inside first if: \"an accessed page\"\n");
       if(curr_node->prev != 0) // there is a page behind it
       {
         if((pte_prev = walkpgdir(prev_page->pgdir, prev_page->virt_addr, 0)) == 0)
@@ -1202,14 +1204,16 @@ void updateAQ(struct proc* p)
       }
       *pte_curr &= ~PTE_A;
     }
-    curr_node = curr_node->prev;
-    cprintf("moved to node: %d \n", curr_node->page_index);
+    
     if(curr_node != 0)
     {
       curr_page = &ramPages[curr_node->page_index];
-      prev_page = &ramPages[curr_node->prev->page_index];
+
+      if(curr_node->prev != 0)
+        prev_page = &ramPages[curr_node->prev->page_index];
+      
+      curr_node = curr_node->prev;
     }
-    
   }
 }
 
@@ -1221,7 +1225,7 @@ void updateAQ(struct proc* p)
 
 void swapAQ(struct queue_node *curr_node)
 {
-  cprintf("AQ SWAPPING: %d and its prev node!\n", curr_node->page_index);
+  // cprintf("AQ SWAPPING: %d and its prev node!\n", curr_node->page_index);
   struct queue_node *prev_node = curr_node->prev;
   struct queue_node *maybeLeft, *maybeRight;
 

@@ -12,8 +12,6 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
-static char buffer[PGSIZE];
-
 static struct proc *initproc;
 
 // static char buf[16 * 4096];
@@ -291,12 +289,16 @@ fork(void)
       np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
       np->swappedPages[i].ref_bit = curproc->swappedPages[i].ref_bit;
       }
+
+        char buffer[PGSIZE / 2] = "";
+        int offset = 0;
+        int nread = 0;
+      while ((nread = readFromSwapFile(curproc, buffer, offset, PGSIZE / 2)) != 0) {
+        if (writeToSwapFile(np, buffer, offset, nread) == -1)
+          panic("fork: error copying parent's swap file");
+        offset += nread;
     }
-      if(readFromSwapFile((void*)curproc, buffer, 0, PGSIZE * MAX_PSYC_PAGES) < 0)
-        panic("fork: readFromSwapFile");
-        
-      if(writeToSwapFile((void*)np, buffer, 0, PGSIZE * MAX_PSYC_PAGES) < 0)
-        panic("fork: writeToSwapFile");
+    }
   }
 }
 

@@ -803,6 +803,5 @@ int
 readFromSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
 {
   p->swapFile->off = placeOnFile;
-
   return fileread(p->swapFile, buffer,  size);
 }
