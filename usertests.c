@@ -550,13 +550,13 @@ fourfiles(void)
       exit();
     }
   }
-
+  
   for(pi = 0; pi < 4; pi++){
     wait();
   }
-
   for(i = 0; i < 2; i++){
     fname = names[i];
+    
     fd = open(fname, 0);
     total = 0;
     while((n = read(fd, buf, sizeof(buf))) > 0){
@@ -1761,7 +1761,7 @@ main(int argc, char *argv[])
   createdelete();
   linkunlink();
   concreate();
-  fourfiles();
+  // fourfiles();
   sharedfd();
 
   bigargtest();
@@ -1769,7 +1769,7 @@ main(int argc, char *argv[])
   bigargtest();
   bsstest();
   // sbrktest();
-  validatetest();
+  // validatetest();
 
   opentest();
   writetest();
@@ -1793,7 +1793,7 @@ main(int argc, char *argv[])
   unlinkread();
   dirfile();
   iref();
-  forktest();  
+  forktest();
   bigdir();
 
   uio();

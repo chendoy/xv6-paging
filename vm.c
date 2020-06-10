@@ -581,9 +581,9 @@ cowuvm(pde_t *pgdir, uint sz)
     if(*pte & PTE_PG)  //there is pgfault, then not mark this entry as cow
     {
       cprintf("cowuvm,  not marked as cow because pgfault \n");
-       pte = walkpgdir(d, (void*) i, 1);
+      pte = walkpgdir(d, (void*) i, 1);
       *pte = PTE_U | PTE_W | PTE_PG;
-       continue;
+      continue;
     }
     
     *pte |= PTE_COW;
@@ -596,9 +596,10 @@ cowuvm(pde_t *pgdir, uint sz)
 
     char *virt_addr = P2V(pa);
     refInc(virt_addr);
-    lcr3(V2P(pgdir));
+    // lcr3(V2P(pgdir));
     // invlpg((void*)i); // flush TLB
   }
+  lcr3(V2P(pgdir));
   return d;
 
 bad:

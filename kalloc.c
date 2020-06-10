@@ -144,7 +144,6 @@ void
 refDec(char *v)
 {
   struct run *r;
-
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = &kmem.runs[(V2P(v) / PGSIZE)];
