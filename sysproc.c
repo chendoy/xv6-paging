@@ -93,11 +93,5 @@ sys_uptime(void)
 int
 sys_getNumberOfFreePages(void)
 {
-  return MAX_PSYC_PAGES - myproc()->nummemorypages;
-}
-
-int
-sys_getTotalFreePages(void)
-{
-  return getTotalFreePages();
+  return getNumberOfFreePages();
 }

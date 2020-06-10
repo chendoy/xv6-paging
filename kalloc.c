@@ -22,6 +22,7 @@ struct {
   struct spinlock lock;
   int use_lock;
   struct run *freelist;
+  
   struct run runs[MAXPAGES]; // pages allocated now (?)
 } kmem;
 
@@ -74,17 +75,13 @@ kfree(char *v)
   if(kmem.use_lock) 
     acquire(&kmem.lock);
   
-  
   r = &kmem.runs[(V2P(v) / PGSIZE)]; // get the page
-
 
   if(r->refcount != 1)
   {
-    cprintf("ref count is %d", r->refcount);
+    // cprintf("ref count is %d", r->refcount);
     panic("kfree: freeing a shared page");
-
   }
-  
 
   r->next = kmem.freelist;
   r->refcount = 0;
@@ -172,4 +169,14 @@ getRefs(char *v)
 
   r = &kmem.runs[(V2P(v) / PGSIZE)];
   return r->refcount;
+}
+
+int getNumOfFreePages(void) {
+  int c = 0;
+  struct run *r = kmem.freelist;
+  while(r) {
+    c++;
+    r = r->next;
+  }
+  return c;
 }

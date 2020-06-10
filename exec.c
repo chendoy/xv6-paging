@@ -21,7 +21,6 @@ struct file* swapfile_backup;
 void 
 backup(struct proc* curproc)
 {  
-  // cprintf("exec now\n");
   memmove((void*)ramPagesBackup, curproc->ramPages, 16 * sizeof(struct page));
   memmove((void*)swappedPagesBackup, curproc->swappedPages, 16 * sizeof(struct page));
   num_ram_backup = curproc->num_ram; 
@@ -101,12 +100,14 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
-  
+
+  #if SELECTION != NONE
   if(curproc->pid > 2)
   {  
     backup(curproc);
     allocate_fresh(curproc);
   }
+  #endif
 
   begin_op();
 
@@ -182,6 +183,7 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
+  #if SELECTION != NONE
   int ind;
   for(ind = 0; ind < MAX_PSYC_PAGES; ind++)
   {
@@ -191,6 +193,7 @@ exec(char *path, char **argv)
     if(curproc->swappedPages[ind].isused)
       curproc->swappedPages[ind].pgdir = pgdir;
   }
+  #endif
 
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
@@ -206,6 +209,8 @@ exec(char *path, char **argv)
   cprintf("exec: bad\n");
   if(pgdir)
     freevm(pgdir);
+
+  #if SELECTION != NONE
   /* restoring variables */
   if(curproc->pid > 2)
   {
@@ -221,6 +226,7 @@ exec(char *path, char **argv)
     curproc->queue_head = queue_head_backup;
     curproc->queue_tail = queue_tail_backup;
   }
+  #endif
   
 
   if(ip){

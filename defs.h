@@ -71,6 +71,7 @@ void            kfree_nocheck(char*);
 void            refInc(char*);
 void            refDec(char*);
 int 			getRefs(char*);
+int             getNumOfFreePages(void);
 
 
 // ide.c
@@ -85,7 +86,6 @@ void            ioapicinit(void);
 
 // kalloc.c
 char*           kalloc(void);
-void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
 
@@ -143,6 +143,8 @@ void            yield(void);
 int             getTotalFreePages(void);
 int             getCurrentFreePages(void);
 void            copyAQ(struct proc* np);
+int             getNumberOfFreePages(void);
+int             getTotalFreePages(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -231,7 +233,6 @@ void            update_selectionfiled_pagefault(struct proc*, struct page*, int)
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
-#define NONE   0
 #define NFUA   1
 #define LAPA   2
 #define SCFIFO 3
@@ -239,3 +240,6 @@ void            update_selectionfiled_pagefault(struct proc*, struct page*, int)
 #define DUMMY  5
 #define TRUE   6
 #define FALSE  7
+#define NONE   8
+
+extern int initialNumOfFreePages;

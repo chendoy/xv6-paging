@@ -263,17 +263,18 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
   char *mem;
   uint a;
+  #if SELECTION != NONE
   struct proc* curproc = myproc();
-  // uint pa;
+  #endif
 
+  // cprintf("num swap file %d\n", myproc()->num_swap);
   if(newsz >= KERNBASE)
     return 0;
   if(newsz < oldsz)
     return oldsz;
 
   a = PGROUNDUP(oldsz);
-  
-  int i=0;
+
   for(; a < newsz; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
@@ -290,15 +291,14 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
 
+  #if SELECTION != NONE
     if(curproc->pid > 2) 
     {   
         allocuvm_paging(curproc, pgdir, (char *)a);
     }
+  #endif
 
-    i+=1;
   }
-
- 
   return newsz;
 }
 
@@ -386,11 +386,11 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       
       if(getRefs(P2V(evicted_pa)) == 1)
       {
-           kfree(P2V(evicted_pa));
+        kfree(P2V(evicted_pa));
       }
       else
       {
-             refDec(P2V(evicted_pa));
+        refDec(P2V(evicted_pa));
       }
 
 
@@ -460,7 +460,10 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   // struct proc *curproc = myproc();
   pte_t *pte;
   uint a, pa;
+
+  #if SELECTION != NONE
   struct proc* curproc = myproc();
+  #endif
 
   if(newsz >= oldsz)
     return oldsz;
@@ -489,6 +492,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         refDec(v);
       }
 
+    #if SELECTION != NONE
       if(curproc->pid >2)
       {
           // remove page a from current proc RAM pages and swap pages
@@ -511,7 +515,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         }
 
       }
-     
+     #endif
       *pte = 0;
     }
   }
@@ -575,19 +579,22 @@ cowuvm(pde_t *pgdir, uint sz)
   {
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("cowuvm: no pte");
-    if(!(*pte & PTE_P) && !(*pte & PTE_PG))
-      panic("cowuvm: page not present and not page faulted!");
-    
-    if(*pte & PTE_PG)  //there is pgfault, then not mark this entry as cow
-    {
-      cprintf("cowuvm,  not marked as cow because pgfault \n");
-      pte = walkpgdir(d, (void*) i, 1);
-      *pte = PTE_U | PTE_W | PTE_PG;
-      continue;
-    }
-    
+
+    #if SELECTION != NONE
+      if(!(*pte & PTE_P) && !(*pte & PTE_PG))
+        panic("cowuvm: page not present and not page faulted!");
+
+      if(*pte & PTE_PG)  //there is pgfault, then not mark this entry as cow
+      {
+        cprintf("cowuvm,  not marked as cow because pgfault \n");
+        pte = walkpgdir(d, (void*) i, 1);
+        *pte = PTE_U | PTE_W | PTE_PG;
+        continue;
+      }
+    #endif
+
     *pte |= PTE_COW;
-    *pte &= ~PTE_W;
+    *pte &= ~PTE_W; 
 
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
@@ -596,8 +603,9 @@ cowuvm(pde_t *pgdir, uint sz)
 
     char *virt_addr = P2V(pa);
     refInc(virt_addr);
+
     // lcr3(V2P(pgdir));
-    // invlpg((void*)i); // flush TLB
+    invlpg((void*)i); // flush TLB
   }
   lcr3(V2P(pgdir));
   return d;
@@ -636,7 +644,7 @@ pagefault(void)
 
   if((*pte & PTE_PG) && !(*pte & PTE_COW)) // paged out, not COW todo
   {
-    handle_pagedout(curproc, start_page, pte);
+      handle_pagedout(curproc, start_page, pte);
   } 
   else
   {
@@ -870,6 +878,7 @@ copyuvm(pde_t *pgdir, uint sz)
   uint pa, i, flags;
   char *mem;
 
+  #if SELECTION != NONE
   if((d = setupkvm()) == 0)
     return 0;
   for(i = 0; i < sz; i += PGSIZE){
@@ -900,6 +909,25 @@ copyuvm(pde_t *pgdir, uint sz)
       goto bad;
     }
   }
+  #else
+  if((d = setupkvm()) == 0)
+    return 0;
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("copyuvm: pte should exist");
+    if(!(*pte & PTE_P))
+      panic("copyuvm: page not present");
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+    if((mem = kalloc()) == 0)
+      goto bad;
+    memmove(mem, (char*)P2V(pa), PGSIZE);
+    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
+      kfree(mem);
+      goto bad;
+    }
+  }
+  #endif
   return d;
 
 bad:

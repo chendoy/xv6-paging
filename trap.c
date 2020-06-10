@@ -49,19 +49,14 @@ trap(struct trapframe *tf)
   }
 
   switch(tf->trapno){
-  case T_PGFLT:
-  #if SELECTION==NONE
-    break;
-  #else
+ case T_PGFLT:
     if(myproc()->pid > 2) 
     {
     pagefault();
-      if(curproc->killed) {
+    if(curproc->killed) 
         exit();
-      }
     }
     break;
-  #endif
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);

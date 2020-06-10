@@ -112,13 +112,15 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+#if SELECTION != NONE
   if(p->pid > 2) {
 
     if(createSwapFile(p) != 0)
       panic("allocproc: createSwapFile");
-    
-    // memset(buf, 0, 16 * 4096);
-    // writeToSwapFile(p, (char*)buf, 0, PGSIZE * 16);
+
+    memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
+    memset(p->swappedPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
+
 
     p->num_ram = 0;
     p->num_swap = 0;
@@ -133,9 +135,6 @@ found:
       p->queue_head = 0;
       p->queue_tail = 0;
     }
-
-    memset(p->ramPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
-    memset(p->swappedPages, 0, sizeof(struct page) * MAX_PSYC_PAGES);
 
     if(p->pid > 2)
     {
@@ -168,6 +167,8 @@ found:
 
     }
   }
+#endif
+  
   return p;
 }
 
@@ -250,7 +251,7 @@ fork(void)
   else // other processes
     np->pgdir = cowuvm(curproc->pgdir, curproc->sz);
   
-
+  
   if(np->pgdir == 0){
     kfree(np->kstack);
     np->kstack = 0;
@@ -260,7 +261,8 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
-
+  
+#if SELECTION != NONE
   if(curproc->pid > 2) // not init or shell
   {
     np->totalPgfltCount = 0;
@@ -302,7 +304,7 @@ fork(void)
       copyAQ(np);
     #endif
   }
-
+#endif
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
@@ -317,7 +319,7 @@ fork(void)
   acquire(&ptable.lock);
   np->state = RUNNABLE;
   release(&ptable.lock);
-  
+
   return pid;
 }
 
@@ -366,11 +368,6 @@ exit(void)
   struct proc *p;
   int fd;
 
-  // if(curproc-> pid > 2)
-  // {
-  //   removeSwapFile(curproc);
-  // }
-
   if(curproc == initproc)
     panic("init exiting");
 
@@ -383,7 +380,7 @@ exit(void)
   }
 
   #if VERBOSE_PRINT == TRUE
-      cprintf("<%d / %d>\n", getCurrentFreePages(), getTotalFreePages());
+      cprintf("\n<%d / %d>", getNumberOfFreePages(), initialNumOfFreePages());
   #endif
 
   begin_op();
@@ -391,12 +388,12 @@ exit(void)
   end_op();
   curproc->cwd = 0;
 
-  
-
-  if(curproc->pid > 2) {
-    if (removeSwapFile(curproc) != 0)
-      panic("exit: error deleting swap file");
-  }
+  #if SELECTION != NONE
+      if(curproc->pid > 2) {
+        if (removeSwapFile(curproc) != 0)
+          panic("exit: error deleting swap file");
+      }
+  #endif
 
   acquire(&ptable.lock);
 
@@ -690,41 +687,13 @@ procdump(void)
       for(i=0; i<10 && pc[i] != 0; i++)
         cprintf(" %p", pc[i]);
     }
-    cprintf("\n<%d / %d>", getCurrentFreePages(), getTotalFreePages());
+    cprintf("\n<%d / %d>", getNumberOfFreePages(), initialNumOfFreePages);
     cprintf("\n");
   }
 }
 
 int
-getCurrentFreePages(void)
+getNumberOfFreePages(void)
 {
-  struct proc *p;
-  int sum = 0;
-  int pcount = 0;
-  acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-  {
-    if(p->state == UNUSED)
-      continue;
-    sum += MAX_PSYC_PAGES - p->num_ram;
-    pcount++;
-  }
-  release(&ptable.lock);
-  return sum;
-}
-
-int
-getTotalFreePages(void)
-{
-  struct proc *p;
-  int pcount = 0;
-  acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-  {
-    if(p->state == UNUSED)
-      continue;
-    pcount++;
-  }
-  release(&ptable.lock);
-  return pcount * MAX_PSYC_PAGES;
+  return getNumOfFreePages();
 }
