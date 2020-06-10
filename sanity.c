@@ -58,13 +58,13 @@ void pagefault_cow(void)
     int len = 15 * PGSIZE;
     char *arr = (char*)malloc(len);
     memset((void*)arr, '0', len); // will cause some pagefaults
-    printf(1,"before fork\n");
+    printf(1,"before fork num swap file: \n");
     if((pid = fork()) == 0) // child
     {
         printf(1, "after fork\n");
         printf(1, "child: writing \'1\'s to arr[0] and arr[1000]\n");
         arr[0] = '1';
-        arr[1000] = '1';
+        // arr[1000] = '1';
         exit();
     }
     else // parent

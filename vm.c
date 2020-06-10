@@ -567,7 +567,7 @@ cowuvm(pde_t *pgdir, uint sz)
       cprintf("cowuvm,  not marked as cow because pgfault \n");
        pte = walkpgdir(d, (void*) i, 1);
       *pte = PTE_U | PTE_W | PTE_PG;
-      continue;
+       continue;
     }
     
     *pte |= PTE_COW;

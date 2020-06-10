@@ -240,7 +240,6 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
-
   // Allocate process.
   if((np = allocproc()) == 0){
     return -1;
@@ -249,7 +248,7 @@ fork(void)
   if(curproc->pid <= 2) // init, shell
     np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
   else // other processes
-    np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
+    np->pgdir = cowuvm(curproc->pgdir, curproc->sz);
   
 
   if(np->pgdir == 0){
@@ -272,22 +271,22 @@ fork(void)
     int i;
     for(i = 0; i < MAX_PSYC_PAGES; i++)
     {
-      if(curproc->ramPages[i].isused)
-      {
+      // if(curproc->ramPages[i].isused)
+      // {
         np->ramPages[i].isused = 1;
         np->ramPages[i].virt_addr = curproc->ramPages[i].virt_addr;
         np->ramPages[i].pgdir = np->pgdir;
         np->ramPages[i].ref_bit = curproc->ramPages[i].ref_bit;
-      }
+      // }
 
-      if(curproc->swappedPages[i].isused)
-      {
+      // if(curproc->swappedPages[i].isused)
+      // {
       np->swappedPages[i].isused = 1;
       np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
       np->swappedPages[i].pgdir = np->pgdir;
       np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
       np->swappedPages[i].ref_bit = curproc->swappedPages[i].ref_bit;
-      }
+      // }
     }
       
       char buffer[PGSIZE / 2] = "";
