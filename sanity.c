@@ -48,7 +48,7 @@ void pagefault_test()
     // memset((void*)arr, '1', len);
     // memset((void*)arr, '2', len);
     // arr[len / 2 - 1] = '2';
-    // arr[0] = '3';
+    arr[0] = '3';
     return;
 }
 
@@ -57,22 +57,27 @@ void pagefault_cow(void)
     int pid;
     int len = 15 * PGSIZE;
     char *arr = (char*)malloc(len);
-    memset((void*)arr, '0', len);
-
+    memset((void*)arr, '0', len); // will cause some pagefaults
+    printf(1,"before fork\n");
     if((pid = fork()) == 0) // child
     {
-        printf(1, "child: writing \'1\'s his mem\n");
-        memset((void*)arr, '1', len);
+        printf(1, "after fork\n");
+        printf(1, "child: writing \'1\'s to arr[0] and arr[1000]\n");
+        arr[0] = '1';
+        arr[1000] = '1';
+        exit();
     }
     else // parent
     {
-        sleep(20);
-        printf(1, "parent: exprected: 0, actual: %c\n", arr[len / 2]);
+        printf(1, "parent: arr[0]: %c (should be \'0\')\n" ,arr[0]);
+        printf(1, "parent: arr[1000]: %c (should be \'0\')\n",arr[1000]);
         wait();
         return;
     }
 
 }
+
+
 
 int
 main(void)
@@ -82,5 +87,6 @@ main(void)
     // simple_fork_test();
     // pagefault_test();
     pagefault_cow();
+    // countinuetest();
     exit();
 }

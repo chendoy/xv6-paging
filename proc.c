@@ -249,7 +249,7 @@ fork(void)
   if(curproc->pid <= 2) // init, shell
     np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
   else // other processes
-    np->pgdir = cowuvm(curproc->pgdir, curproc->sz);
+    np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
   
 
   if(np->pgdir == 0){
@@ -280,8 +280,6 @@ fork(void)
         np->ramPages[i].ref_bit = curproc->ramPages[i].ref_bit;
       }
 
-    for(i = 0; i < MAX_PSYC_PAGES; i++)
-    {
       if(curproc->swappedPages[i].isused)
       {
       np->swappedPages[i].isused = 1;
@@ -290,18 +288,21 @@ fork(void)
       np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
       np->swappedPages[i].ref_bit = curproc->swappedPages[i].ref_bit;
       }
-
-        char buffer[PGSIZE / 2] = "";
-        int offset = 0;
-        int nread = 0;
+    }
+      
+      char buffer[PGSIZE / 2] = "";
+      int offset = 0;
+      int nread = 0;
       while ((nread = readFromSwapFile(curproc, buffer, offset, PGSIZE / 2)) != 0) {
         if (writeToSwapFile(np, buffer, offset, nread) == -1)
           panic("fork: error copying parent's swap file");
         offset += nread;
-    }
-    }
+      }
+
+    #if SELECTION==AQ
+      copyAQ(np);
+    #endif
   }
-}
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -313,9 +314,7 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
   pid = np->pid;
 
-  //#if(SELECTION==AQ)
-  copyAQ(np);
-  //#endif
+
   acquire(&ptable.lock);
   np->state = RUNNABLE;
   release(&ptable.lock);

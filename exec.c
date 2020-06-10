@@ -18,8 +18,6 @@ struct queue_node* queue_head_backup;
 struct queue_node* queue_tail_backup;
 struct file* swapfile_backup;
 
-
-
 void 
 backup(struct proc* curproc)
 {  

@@ -561,26 +561,25 @@ cowuvm(pde_t *pgdir, uint sz)
       panic("cowuvm: no pte");
     if(!(*pte & PTE_P) && !(*pte & PTE_PG))
       panic("cowuvm: page not present and not page faulted!");
+    
+    if(*pte & PTE_PG)  //there is pgfault, then not mark this entry as cow
+    {
+      cprintf("cowuvm,  not marked as cow because pgfault \n");
+       pte = walkpgdir(d, (void*) i, 1);
+      *pte = PTE_U | PTE_W | PTE_PG;
+      continue;
+    }
+    
+    *pte |= PTE_COW;
+    *pte &= ~PTE_W;
 
     pa = PTE_ADDR(*pte);
-
-    if(!(*pte & PTE_PG)) // was not marked as paged-out in the parent
-    {
-      *pte |= PTE_COW;
-      *pte &= ~PTE_W;
-      
-      char *virt_addr = P2V(pa);
-      refInc(virt_addr);
-    }
-    else
-    {
-
-    }
-
     flags = PTE_FLAGS(*pte);
     if(mappages(d, (void *) i, PGSIZE, pa, flags) < 0)
       goto bad;
-    
+
+    char *virt_addr = P2V(pa);
+    refInc(virt_addr);
     lcr3(V2P(pgdir));
     // invlpg((void*)i); // flush TLB
   }
@@ -618,12 +617,13 @@ pagefault(void)
   char *start_page = (char*)PGROUNDDOWN((uint)va); //round the va to closet 2 exponenet, to get the start of the page addr
   pte = walkpgdir(curproc->pgdir, start_page, 0);
 
-  if((*pte & PTE_PG) && (*pte & ~PTE_COW)) // paged out, not COW todo
+  if((*pte & PTE_PG) && !(*pte & PTE_COW)) // paged out, not COW todo
   {
     handle_pagedout(curproc, start_page, pte);
   } 
   else
   {
+    // cprintf("pagefault - %s (pid %d) - maybe COW\n", curproc->name, curproc->pid);
     // we should now do COW mechanism for kernel addresses
     if(va >= KERNBASE || pte == 0)
     {
@@ -660,7 +660,6 @@ handle_cow_pagefault(struct proc* curproc, pte_t* pte, uint va)
     }
     else // at this point: FEC_WR & PTE_COW are ON
     {
-      cprintf("pagefault - %s (pid %d) - COW\n", curproc->name, curproc->pid);
       int ref_count;
       pa = PTE_ADDR(*pte);
       char *virt_addr = P2V(pa);
@@ -861,18 +860,17 @@ copyuvm(pde_t *pgdir, uint sz)
 
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if(*pte & PTE_PG)
-    {
-      if(mappages(d, (void*)i, PGSIZE, 0, flags) < 0)
-        panic("copyuvm: mappages failed");
-      continue;
-    }
+    // if(*pte & PTE_PG)
+    // {
+    //   if(mappages(d, (void*)i, PGSIZE, 0, flags) < 0)
+    //     panic("copyuvm: mappages failed");
+    //   continue;
+    // }
     if((mem = kalloc()) == 0)
       goto bad;
     memmove(mem, (char*)P2V(pa), PGSIZE);
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
       cprintf("copyuvm: mappages failed\n");
-      kfree(mem);
       goto bad;
     }
   }
