@@ -14,8 +14,6 @@ struct {
 
 static struct proc *initproc;
 
-// static char buf[16 * 4096];
-
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -251,7 +249,7 @@ fork(void)
   if(curproc->pid <= 2) // init, shell
     np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
   else // other processes
-    np->pgdir = copyuvm(curproc->pgdir, curproc->sz);
+    np->pgdir = cowuvm(curproc->pgdir, curproc->sz);
   
 
   if(np->pgdir == 0){

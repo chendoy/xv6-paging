@@ -561,16 +561,26 @@ cowuvm(pde_t *pgdir, uint sz)
       panic("cowuvm: no pte");
     if(!(*pte & PTE_P) && !(*pte & PTE_PG))
       panic("cowuvm: page not present and not page faulted!");
-    *pte |= PTE_COW;
-    *pte &= ~PTE_W;
 
     pa = PTE_ADDR(*pte);
+
+    if(!(*pte & PTE_PG)) // was not marked as paged-out in the parent
+    {
+      *pte |= PTE_COW;
+      *pte &= ~PTE_W;
+      
+      char *virt_addr = P2V(pa);
+      refInc(virt_addr);
+    }
+    else
+    {
+
+    }
+
     flags = PTE_FLAGS(*pte);
     if(mappages(d, (void *) i, PGSIZE, pa, flags) < 0)
       goto bad;
-
-    char *virt_addr = P2V(pa);
-    refInc(virt_addr);
+    
     lcr3(V2P(pgdir));
     // invlpg((void*)i); // flush TLB
   }
@@ -614,7 +624,6 @@ pagefault(void)
   } 
   else
   {
-    cprintf("pagefault - %s (pid %d) - maybe COW\n", curproc->name, curproc->pid);
     // we should now do COW mechanism for kernel addresses
     if(va >= KERNBASE || pte == 0)
     {
@@ -651,6 +660,7 @@ handle_cow_pagefault(struct proc* curproc, pte_t* pte, uint va)
     }
     else // at this point: FEC_WR & PTE_COW are ON
     {
+      cprintf("pagefault - %s (pid %d) - COW\n", curproc->name, curproc->pid);
       int ref_count;
       pa = PTE_ADDR(*pte);
       char *virt_addr = P2V(pa);

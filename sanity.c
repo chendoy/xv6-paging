@@ -42,9 +42,8 @@ void simple_fork_test()
 void pagefault_test()
 {
     // printf(1, "\n-------- pagefault_test --------\n");
-    int len = 28 * PGSIZE;
+    int len = 15 * PGSIZE;
     char *arr = (char*)malloc(len);
-    arr++;
     memset((void*)arr, '0', len);
     // memset((void*)arr, '1', len);
     // memset((void*)arr, '2', len);
@@ -53,12 +52,35 @@ void pagefault_test()
     return;
 }
 
+void pagefault_cow(void)
+{
+    int pid;
+    int len = 15 * PGSIZE;
+    char *arr = (char*)malloc(len);
+    memset((void*)arr, '0', len);
+
+    if((pid = fork()) == 0) // child
+    {
+        printf(1, "child: writing \'1\'s his mem\n");
+        memset((void*)arr, '1', len);
+    }
+    else // parent
+    {
+        sleep(20);
+        printf(1, "parent: exprected: 0, actual: %c\n", arr[len / 2]);
+        wait();
+        return;
+    }
+
+}
+
 int
 main(void)
 {
     // simple_printf_test();
     // simple_buffer_test();
     // simple_fork_test();
-    pagefault_test();
+    // pagefault_test();
+    pagefault_cow();
     exit();
 }
