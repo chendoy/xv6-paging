@@ -77,8 +77,13 @@ kfree(char *v)
   
   r = &kmem.runs[(V2P(v) / PGSIZE)]; // get the page
 
+
   if(r->refcount != 1)
+  {
+    cprintf("ref count is %d", r->refcount);
     panic("kfree: freeing a shared page");
+
+  }
   
 
   r->next = kmem.freelist;

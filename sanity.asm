@@ -43,7 +43,7 @@ main(void)
    printf(1, "sanity test!\n");
   32:	58                   	pop    %eax
   33:	5a                   	pop    %edx
-  34:	68 d8 09 00 00       	push   $0x9d8
+  34:	68 a8 09 00 00       	push   $0x9a8
   39:	6a 01                	push   $0x1
   3b:	e8 20 05 00 00       	call   560 <printf>
 }
@@ -96,7 +96,7 @@ main(void)
         printf(1, "I'm parent!\n");
   a8:	58                   	pop    %eax
   a9:	5a                   	pop    %edx
-  aa:	68 f2 09 00 00       	push   $0x9f2
+  aa:	68 c2 09 00 00       	push   $0x9c2
   af:	6a 01                	push   $0x1
   b1:	e8 aa 04 00 00       	call   560 <printf>
         wait();
@@ -108,7 +108,7 @@ main(void)
         printf(1, "I'm child!\n");
   bf:	51                   	push   %ecx
   c0:	51                   	push   %ecx
-  c1:	68 e6 09 00 00       	push   $0x9e6
+  c1:	68 b6 09 00 00       	push   $0x9b6
   c6:	6a 01                	push   $0x1
   c8:	e8 93 04 00 00       	call   560 <printf>
         exit();
@@ -163,9 +163,9 @@ main(void)
  12d:	50                   	push   %eax
  12e:	e8 2d 01 00 00       	call   260 <memset>
     printf(1,"before fork num swap file: \n");
- 133:	58                   	pop    %eax
- 134:	5a                   	pop    %edx
- 135:	68 ff 09 00 00       	push   $0x9ff
+ 133:	5a                   	pop    %edx
+ 134:	59                   	pop    %ecx
+ 135:	68 cf 09 00 00       	push   $0x9cf
  13a:	6a 01                	push   $0x1
  13c:	e8 1f 04 00 00       	call   560 <printf>
     if((pid = fork()) == 0) // child
@@ -177,14 +177,14 @@ main(void)
  14d:	0f be 03             	movsbl (%ebx),%eax
  150:	83 ec 04             	sub    $0x4,%esp
  153:	50                   	push   %eax
- 154:	68 8c 09 00 00       	push   $0x98c
+ 154:	68 5c 09 00 00       	push   $0x95c
  159:	6a 01                	push   $0x1
  15b:	e8 00 04 00 00       	call   560 <printf>
         printf(1, "parent: arr[1000]: %c (should be \'0\')\n",arr[1000]);
  160:	0f be 83 e8 03 00 00 	movsbl 0x3e8(%ebx),%eax
  167:	83 c4 0c             	add    $0xc,%esp
  16a:	50                   	push   %eax
- 16b:	68 b0 09 00 00       	push   $0x9b0
+ 16b:	68 80 09 00 00       	push   $0x980
  170:	6a 01                	push   $0x1
  172:	e8 e9 03 00 00       	call   560 <printf>
         wait();
@@ -194,27 +194,25 @@ main(void)
  17d:	c9                   	leave  
         wait();
  17e:	e9 87 02 00 00       	jmp    40a <wait>
-        printf(1, "after fork\n");
+        printf(1, "child: writing \'1\'s arr\n");
  183:	50                   	push   %eax
  184:	50                   	push   %eax
- 185:	68 1c 0a 00 00       	push   $0xa1c
+ 185:	68 ec 09 00 00       	push   $0x9ec
  18a:	6a 01                	push   $0x1
  18c:	e8 cf 03 00 00       	call   560 <printf>
-        printf(1, "child: writing \'1\'s to arr[0] and arr[1000]\n");
- 191:	5a                   	pop    %edx
- 192:	59                   	pop    %ecx
- 193:	68 5c 09 00 00       	push   $0x95c
- 198:	6a 01                	push   $0x1
- 19a:	e8 c1 03 00 00       	call   560 <printf>
-        arr[0] = '1';
- 19f:	c6 03 31             	movb   $0x31,(%ebx)
+        memset((void*)arr, '1', len);
+ 191:	83 c4 0c             	add    $0xc,%esp
+ 194:	68 00 f0 00 00       	push   $0xf000
+ 199:	6a 31                	push   $0x31
+ 19b:	53                   	push   %ebx
+ 19c:	e8 bf 00 00 00       	call   260 <memset>
         exit();
- 1a2:	e8 5b 02 00 00       	call   402 <exit>
- 1a7:	66 90                	xchg   %ax,%ax
- 1a9:	66 90                	xchg   %ax,%ax
- 1ab:	66 90                	xchg   %ax,%ax
- 1ad:	66 90                	xchg   %ax,%ax
- 1af:	90                   	nop
+ 1a1:	e8 5c 02 00 00       	call   402 <exit>
+ 1a6:	66 90                	xchg   %ax,%ax
+ 1a8:	66 90                	xchg   %ax,%ax
+ 1aa:	66 90                	xchg   %ax,%ax
+ 1ac:	66 90                	xchg   %ax,%ax
+ 1ae:	66 90                	xchg   %ax,%ax
 
 000001b0 <strcpy>:
 #include "user.h"
@@ -802,7 +800,7 @@ printint(int fd, int xx, int base, int sgn)
  4f2:	31 d2                	xor    %edx,%edx
  4f4:	8d 7e 01             	lea    0x1(%esi),%edi
  4f7:	f7 f1                	div    %ecx
- 4f9:	0f b6 92 30 0a 00 00 	movzbl 0xa30(%edx),%edx
+ 4f9:	0f b6 92 0c 0a 00 00 	movzbl 0xa0c(%edx),%edx
   }while((x /= base) != 0);
  500:	85 c0                	test   %eax,%eax
     buf[i++] = digits[x % base];
@@ -1093,7 +1091,7 @@ printf(int fd, const char *fmt, ...)
  712:	31 ff                	xor    %edi,%edi
  714:	e9 8f fe ff ff       	jmp    5a8 <printf+0x48>
           s = "(null)";
- 719:	bb 28 0a 00 00       	mov    $0xa28,%ebx
+ 719:	bb 05 0a 00 00       	mov    $0xa05,%ebx
         while(*s != 0){
  71e:	b8 28 00 00 00       	mov    $0x28,%eax
  723:	e9 72 ff ff ff       	jmp    69a <printf+0x13a>
@@ -1114,7 +1112,7 @@ free(void *ap)
 
   bp = (Header*)ap - 1;
   for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
- 731:	a1 84 0d 00 00       	mov    0xd84,%eax
+ 731:	a1 60 0d 00 00       	mov    0xd60,%eax
 {
  736:	89 e5                	mov    %esp,%ebp
  738:	57                   	push   %edi
@@ -1155,7 +1153,7 @@ free(void *ap)
     p->s.ptr = bp;
  76d:	89 08                	mov    %ecx,(%eax)
   freep = p;
- 76f:	a3 84 0d 00 00       	mov    %eax,0xd84
+ 76f:	a3 60 0d 00 00       	mov    %eax,0xd60
 }
  774:	5b                   	pop    %ebx
  775:	5e                   	pop    %esi
@@ -1187,7 +1185,7 @@ free(void *ap)
     p->s.size += bp->s.size;
  7a7:	03 53 fc             	add    -0x4(%ebx),%edx
   freep = p;
- 7aa:	a3 84 0d 00 00       	mov    %eax,0xd84
+ 7aa:	a3 60 0d 00 00       	mov    %eax,0xd60
     p->s.size += bp->s.size;
  7af:	89 50 04             	mov    %edx,0x4(%eax)
     p->s.ptr = bp->s.ptr;
@@ -1220,7 +1218,7 @@ malloc(uint nbytes)
   nunits = (nbytes + sizeof(Header) - 1)/sizeof(Header) + 1;
  7c9:	8b 45 08             	mov    0x8(%ebp),%eax
   if((prevp = freep) == 0){
- 7cc:	8b 15 84 0d 00 00    	mov    0xd84,%edx
+ 7cc:	8b 15 60 0d 00 00    	mov    0xd60,%edx
   nunits = (nbytes + sizeof(Header) - 1)/sizeof(Header) + 1;
  7d2:	8d 78 07             	lea    0x7(%eax),%edi
  7d5:	c1 ef 03             	shr    $0x3,%edi
@@ -1257,7 +1255,7 @@ malloc(uint nbytes)
       return (void*)(p + 1);
     }
     if(p == freep)
- 811:	39 05 84 0d 00 00    	cmp    %eax,0xd84
+ 811:	39 05 60 0d 00 00    	cmp    %eax,0xd60
  817:	89 c2                	mov    %eax,%edx
  819:	75 ed                	jne    808 <malloc+0x48>
   p = sbrk(nu * sizeof(Header));
@@ -1276,7 +1274,7 @@ malloc(uint nbytes)
  835:	50                   	push   %eax
  836:	e8 f5 fe ff ff       	call   730 <free>
   return freep;
- 83b:	8b 15 84 0d 00 00    	mov    0xd84,%edx
+ 83b:	8b 15 60 0d 00 00    	mov    0xd60,%edx
       if((p = morecore(nunits)) == 0)
  841:	83 c4 10             	add    $0x10,%esp
  844:	85 d2                	test   %edx,%edx
@@ -1305,7 +1303,7 @@ malloc(uint nbytes)
         p->s.size = nunits;
  864:	89 78 04             	mov    %edi,0x4(%eax)
       freep = prevp;
- 867:	89 15 84 0d 00 00    	mov    %edx,0xd84
+ 867:	89 15 60 0d 00 00    	mov    %edx,0xd60
 }
  86d:	8d 65 f4             	lea    -0xc(%ebp),%esp
       return (void*)(p + 1);
@@ -1319,13 +1317,13 @@ malloc(uint nbytes)
  878:	90                   	nop
  879:	8d b4 26 00 00 00 00 	lea    0x0(%esi,%eiz,1),%esi
     base.s.ptr = freep = prevp = &base;
- 880:	c7 05 84 0d 00 00 88 	movl   $0xd88,0xd84
+ 880:	c7 05 60 0d 00 00 64 	movl   $0xd64,0xd60
  887:	0d 00 00 
- 88a:	c7 05 88 0d 00 00 88 	movl   $0xd88,0xd88
+ 88a:	c7 05 64 0d 00 00 64 	movl   $0xd64,0xd64
  891:	0d 00 00 
     base.s.size = 0;
- 894:	b8 88 0d 00 00       	mov    $0xd88,%eax
- 899:	c7 05 8c 0d 00 00 00 	movl   $0x0,0xd8c
+ 894:	b8 64 0d 00 00       	mov    $0xd64,%eax
+ 899:	c7 05 68 0d 00 00 00 	movl   $0x0,0xd68
  8a0:	00 00 00 
  8a3:	e9 44 ff ff ff       	jmp    7ec <malloc+0x2c>
  8a8:	90                   	nop

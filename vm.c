@@ -384,8 +384,17 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       
       char *evicted_pa = (char*)PTE_ADDR(*evicted_pte);
       
+      if(getRefs(P2V(evicted_pa)) == 1)
+      {
+           kfree(P2V(evicted_pa));
+      }
+      else
+      {
+             refDec(P2V(evicted_pa));
+      }
 
-      kfree(P2V(evicted_pa));
+
+  
 
       *evicted_pte &= 0xFFF; // ???
 
@@ -522,7 +531,14 @@ freevm(pde_t *pgdir)
   for(i = 0; i < NPDENTRIES; i++){
     if(pgdir[i] & PTE_P){
       char * v = P2V(PTE_ADDR(pgdir[i]));
-      kfree(v);
+      if(getRefs(v) == 1)
+      {
+        kfree(v);
+      }
+      else
+      {
+        refDec(v);
+      }
     }
   }
   kfree((char*)pgdir);
@@ -783,8 +799,17 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
       if(!(*pte & PTE_P))
         panic("pagefault: ram page is not present");
       ramPa = (void*)PTE_ADDR(*pte);
+      
 
-      kfree(P2V(ramPa));
+       if(getRefs(P2V(ramPa)) == 1)
+      {
+           kfree(P2V(ramPa));
+      }
+      else
+      {
+           refDec(P2V(ramPa));
+      }
+      
       *pte &= 0xFFF;   // ???
       
       // prepare to-be-swapped page in RAM to move to swap file

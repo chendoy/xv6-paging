@@ -61,10 +61,8 @@ void pagefault_cow(void)
     printf(1,"before fork num swap file: \n");
     if((pid = fork()) == 0) // child
     {
-        printf(1, "after fork\n");
-        printf(1, "child: writing \'1\'s to arr[0] and arr[1000]\n");
-        arr[0] = '1';
-        // arr[1000] = '1';
+        printf(1, "child: writing \'1\'s arr\n");
+        memset((void*)arr, '1', len);
         exit();
     }
     else // parent
