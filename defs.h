@@ -60,6 +60,7 @@ int				writeToSwapFile(struct proc* p, char* buffer, uint placeOnFile, uint size
 int				removeSwapFile(struct proc* p);
 
 
+
 // sysfile
 struct inode*	create(char *path, short type, short major, short minor);
 int				isdirempty(struct inode *dp);
@@ -145,6 +146,7 @@ int             getCurrentFreePages(void);
 void            copyAQ(struct proc* np);
 int             getNumberOfFreePages(void);
 int             getTotalFreePages(void);
+int             getNumRefs(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -228,7 +230,7 @@ uint            countSetBits(uint n);
 void            swapAQ(struct queue_node*);
 void            update_selectionfiled_allocuvm(struct proc*, struct page* , int);
 void            update_selectionfiled_pagefault(struct proc*, struct page*, int);
-
+int             getNumRefsWarpper(int);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

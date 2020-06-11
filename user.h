@@ -25,6 +25,7 @@ int sleep(int);
 int uptime(void);
 int getNumberOfFreePages(void);
 int getTotalFreePages(void);
+int getNumRefs(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

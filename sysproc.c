@@ -95,3 +95,13 @@ sys_getNumberOfFreePages(void)
 {
   return getNumberOfFreePages();
 }
+
+int
+sys_getNumRefs(void)
+{
+  int arrindx;
+
+  if(argint(0, &arrindx) < 0)
+    return -1;
+  return getNumRefs(arrindx);
+}

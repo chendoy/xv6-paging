@@ -25,7 +25,7 @@ void simple_fork_test()
     }
 }
 
-void free_pages_test()
+void free_pages_test1()
 {
     printf(1, "num of free pages is: %d\n", getNumberOfFreePages());
     int len =  10 * PGSIZE;
@@ -34,7 +34,7 @@ void free_pages_test()
     printf(1, "cur num of free pages shold be old-10: %d\n", getNumberOfFreePages());
 }
 
-void free_pages_with_swap_test()
+void free_pages_with_swap_test1()
 {
     int init_free = getNumberOfFreePages();
     printf(1, "init free pages: %d\n", init_free);
@@ -86,6 +86,7 @@ void pagefault_cow_test(void)
 }
 
 
+
 void cow_refs_test(void)
 {
     int pid;
@@ -94,9 +95,9 @@ void cow_refs_test(void)
     memset((void*)arr, '0', len); // will cause some pagefaults
     if((pid = fork()) == 0) // child
     {
-        printf(1, "before child write on arr num ref of rampage[%d] is : %d\n",10 , getNumRefs(10));
+        printf(1, "before child write on arr num ref of rampage[%d] is : %d\n",6 , getNumRefs(6));
         memset((void*)arr, '1', len);
-        printf(1, "after child write on arr num ref of rampage[%d] is : %d\n",10, getNumRefs(10));
+        printf(1, "after child write on arr num ref of rampage[%d] is : %d\n",6, getNumRefs(6));
         exit();
     }
     else // parent
@@ -105,6 +106,7 @@ void cow_refs_test(void)
         return;
     }
 }
+
 
 void num_pages_test()
 {
@@ -193,7 +195,7 @@ void num_pages_test()
   return;
 }
 
-void free_pages_test()
+void free_pages_test2()
 {
     printf(1, "num of free pages is: %d\n", getNumberOfFreePages());
     int len =  10 * PGSIZE;
@@ -202,7 +204,7 @@ void free_pages_test()
     printf(1, "cur num of free pages shold be old-10: %d\n", getNumberOfFreePages());
 }
 
-void free_pages_with_swap_test()
+void free_pages_with_swap_test2()
 {
     int init_free = getNumberOfFreePages();
     printf(1, "init free pages: %d\n", init_free);
@@ -225,13 +227,14 @@ main(void)
 {
     // simple_fork_test();
     // pagefault_test();
-    // free_pages_test();
+    // free_pages_test1();
+    // free_pages_test2();
     // num_pages_test();
 
     // pagefault_cow_test();
-    // cow_refs_test();
-    // free_pages_test();
-    // free_pages_with_swap_test();
+    cow_refs_test();
+    // free_pages_with_swap_test1();
+    // free_pages_with_swap_test2();
     // allocate_more_than_MaxPages_test();
     exit();
 }

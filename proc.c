@@ -697,3 +697,9 @@ getNumberOfFreePages(void)
 {
   return getNumOfFreePages();
 }
+
+int
+getNumRefs(int arrindx)
+{ 
+  return getNumRefsWarpper(arrindx);
+}

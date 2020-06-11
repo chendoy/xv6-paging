@@ -261,6 +261,7 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
 int
 allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
+  
   char *mem;
   uint a;
   #if SELECTION != NONE
@@ -361,7 +362,7 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
         kfree((char*)curproc->free_head->prev);
       }
 
-      // cprintf("before write to swap\n");
+      cprintf("writing a page to swap\n");
       if(writeToSwapFile(curproc, evicted_page->virt_addr, swap_offset, PGSIZE) < 0)
         panic("allocuvm: writeToSwapFile");
 
@@ -387,7 +388,6 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       if(getRefs(P2V(evicted_pa)) == 1)
       {
         kfree(P2V(evicted_pa));
-        cprintf("num of file after kfree is : %d\n", getNumberOfFreePages());
       }
       else
       {
@@ -397,7 +397,7 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 
   
 
-      *evicted_pte &= 0xFFF; // ???
+      *evicted_pte &= 0xFFF;
 
       *evicted_pte |= PTE_PG;
       *evicted_pte &= ~PTE_P;
@@ -405,7 +405,7 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 
       struct page *newpage = &curproc->ramPages[evicted_ind];
       newpage->isused = 1;
-      newpage->pgdir = pgdir; // ??? 
+      newpage->pgdir = pgdir;
       newpage->swap_offset = -1;
       newpage->virt_addr = rounded_virtaddr;
       update_selectionfiled_allocuvm(curproc, newpage, evicted_ind);
@@ -1314,4 +1314,27 @@ void swapAQ(struct queue_node *curr_node)
     prev_node->next = maybeRight;
     maybeRight->prev = prev_node;
   }
+}
+
+ int
+  getNumRefsWarpper(int idx)
+  {
+    struct proc * curproc = myproc();
+    pte_t *evicted_pte = walkpgdir(curproc->ramPages[idx].pgdir, (void*)curproc->ramPages[idx].virt_addr, 0);
+    char *evicted_pa = (char*)PTE_ADDR(*evicted_pte);
+    return getRefs(P2V(evicted_pa));
+
+  }
+
+int
+getRamPageIndexByVirtAddr(char* virtaddr)
+{
+  struct proc* curproc = myproc();
+  int i;
+  for(i = 0; i < MAX_PSYC_PAGES; i++)
+  {
+    if(curproc->swappedPages[i].virt_addr == virtaddr)
+      return i;
+  }
+  return -1;
 }
