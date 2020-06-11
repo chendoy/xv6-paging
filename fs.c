@@ -792,6 +792,7 @@ createSwapFile(struct proc* p)
 int
 writeToSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
 {
+  cprintf("a page has been written to swap\n");
   p->swapFile->off = placeOnFile;
 
   return filewrite(p->swapFile, buffer, size);
