@@ -439,21 +439,22 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir); // panic: kfree
+        freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
         p->clockHand = 0;
-        p->swapFile = 0;
         p->free_head = 0;
         p->free_tail = 0;
         p->queue_head = 0;
         p->queue_tail = 0;
         p->numswappages = 0;
         p-> nummemorypages = 0;
-        memset(p->ramPages, 0, sizeof(p->ramPages));
-        memset(p->swappedPages, 0, sizeof(p->swappedPages));
+        #if SELECTION != NONE
+          memset(p->ramPages, 0, sizeof(p->ramPages));
+          memset(p->swappedPages, 0, sizeof(p->swappedPages));
+        #endif
         p->state = UNUSED;
         release(&ptable.lock);
         return pid;

@@ -12,7 +12,7 @@ extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 static char buffer[PGSIZE];
 
-void  handle_cow_pagefault(struct proc*, pte_t*, uint);
+void  handle_cow_pagefault(struct proc*, pte_t*, char*);
 void  handle_pagedout(struct proc*, char*, pte_t*);
 
 void printlist()
@@ -658,17 +658,17 @@ pagefault(void)
       return;
     }
 
-    if((pte = walkpgdir(curproc->pgdir, (void*)va, 0)) == 0)
-    {
-      panic("pagefult (cow): pte is 0");
-    }
+    // if((pte = walkpgdir(curproc->pgdir, (void*)stra, 0)) == 0)
+    // {
+    //   panic("pagefult (cow): pte is 0");
+    // }
     
-    handle_cow_pagefault(curproc, pte, va);
+    handle_cow_pagefault(curproc, pte, start_page);
   }
 }
 
 void
-handle_cow_pagefault(struct proc* curproc, pte_t* pte, uint va)
+handle_cow_pagefault(struct proc * curproc, pte_t* pte, char* va)
 {
   uint err = curproc->tf->err;
   uint flags;

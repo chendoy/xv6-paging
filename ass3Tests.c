@@ -25,14 +25,7 @@ void simple_fork_test()
     }
 }
 
-void free_pages_test1()
-{
-    printf(1, "num of free pages is: %d\n", getNumberOfFreePages());
-    int len =  10 * PGSIZE;
-    char *arr = sbrk(len);
-    arr++;
-    printf(1, "cur num of free pages shold be old-10: %d\n", getNumberOfFreePages());
-}
+
 
 void free_pages_with_swap_test1()
 {
@@ -195,7 +188,7 @@ void num_pages_test()
   return;
 }
 
-void free_pages_test2()
+void free_pages_test()
 {
     printf(1, "num of free pages is: %d\n", getNumberOfFreePages());
     int len =  10 * PGSIZE;
@@ -227,8 +220,7 @@ main(void)
 {
     // simple_fork_test();
     // pagefault_test();
-    // free_pages_test1();
-    // free_pages_test2();
+    // free_pages_test();
     // num_pages_test();
 
     // pagefault_cow_test();
