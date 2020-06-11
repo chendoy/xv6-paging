@@ -387,6 +387,7 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       if(getRefs(P2V(evicted_pa)) == 1)
       {
         kfree(P2V(evicted_pa));
+        cprintf("num of file after kfree is : %d\n", getNumberOfFreePages());
       }
       else
       {
@@ -736,8 +737,10 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
     int index = getSwappedPageIndex(start_page); // get swap page index
     struct page *swap_page = &curproc->swappedPages[index];
 
+    
+
     if(readFromSwapFile(curproc, buffer, swap_page->swap_offset, PGSIZE) < 0)
-      panic("allocuvm: readFromSwapFile");
+      panic("allocuvm: readFromSwapFile1");
 
     struct fblock *new_block = (struct fblock*)kalloc();
     new_block->off = swap_page->swap_offset;

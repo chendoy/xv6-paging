@@ -65,7 +65,7 @@ myproc(void) {
   return p;
 }
 
-//PAGEBREAK: 32
+//PAGEBREAK: 32r
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
 // state required to run in the kernel.

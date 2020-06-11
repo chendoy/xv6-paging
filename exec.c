@@ -206,7 +206,7 @@ exec(char *path, char **argv)
   return 0;
 
  bad:
-  cprintf("exec: bad\n");
+  // cprintf("exec: bad\n");
   if(pgdir)
     freevm(pgdir);
 

@@ -59,6 +59,7 @@ freerange(void *vstart, void *vend)
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
 // initializing the allocator; see kinit above.)
+
 void
 kfree(char *v)
 {
@@ -82,6 +83,7 @@ kfree(char *v)
     // cprintf("ref count is %d", r->refcount);
     panic("kfree: freeing a shared page");
   }
+
 
   r->next = kmem.freelist;
   r->refcount = 0;
