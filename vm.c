@@ -264,9 +264,9 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   
   char *mem;
   uint a;
-  #if SELECTION != NONE
+
   struct proc* curproc = myproc();
-  #endif
+
 
   // cprintf("num swap file %d\n", myproc()->num_swap);
   if(newsz >= KERNBASE)
@@ -292,12 +292,12 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
 
-  #if SELECTION != NONE
+
     if(curproc->pid > 2) 
     {   
         allocuvm_paging(curproc, pgdir, (char *)a);
     }
-  #endif
+
 
   }
   return newsz;
@@ -306,6 +306,10 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 void
 allocuvm_paging(struct proc * curproc, pde_t *pgdir, char* rounded_virtaddr)
 {
+    #if SELECTION == NONE
+     allocuvm_noswap(curproc, pgdir, rounded_virtaddr);
+    #else
+    
     if(curproc->num_ram < MAX_PSYC_PAGES) // there is space in RAM
     {
        allocuvm_noswap(curproc, pgdir, rounded_virtaddr); 
@@ -315,7 +319,11 @@ allocuvm_paging(struct proc * curproc, pde_t *pgdir, char* rounded_virtaddr)
     {
       allocuvm_withswap(curproc, pgdir, rounded_virtaddr);
     }
+
+    #endif
 }
+
+
 
 void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
 {
@@ -327,6 +335,7 @@ void allocuvm_noswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
   page->pgdir = pgdir;
   page->swap_offset = -1;
   page->virt_addr = rounded_virtaddr;
+  
   update_selectionfiled_allocuvm(curproc, page, curproc->num_ram);
 
   // cprintf("filling ram slot: %d\n", curproc->num_ram);
@@ -353,13 +362,13 @@ allocuvm_withswap(struct proc* curproc, pde_t *pgdir, char* rounded_virtaddr)
       if(curproc->free_head->next == 0)
       {
         curproc->free_tail = 0;
-        kfree((char*)curproc->free_head);
+        // kfree((char*)curproc->free_head);
         curproc->free_head = 0;
       }
       else
       {
         curproc->free_head = curproc->free_head->next;
-        kfree((char*)curproc->free_head->prev);
+        // kfree((char*)curproc->free_head->prev);
       }
 
       cprintf("writing a page to swap\n");
@@ -462,9 +471,8 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   pte_t *pte;
   uint a, pa;
 
-  #if SELECTION != NONE
   struct proc* curproc = myproc();
-  #endif
+
 
   if(newsz >= oldsz)
     return oldsz;
@@ -493,7 +501,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         refDec(v);
       }
 
-    #if SELECTION != NONE
+  
       if(curproc->pid >2)
       {
           // remove page a from current proc RAM pages and swap pages
@@ -516,7 +524,6 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         }
 
       }
-     #endif
       *pte = 0;
     }
   }
@@ -581,18 +588,18 @@ cowuvm(pde_t *pgdir, uint sz)
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("cowuvm: no pte");
 
-    #if SELECTION != NONE
-      if(!(*pte & PTE_P) && !(*pte & PTE_PG))
-        panic("cowuvm: page not present and not page faulted!");
 
-      if(*pte & PTE_PG)  //there is pgfault, then not mark this entry as cow
-      {
-        cprintf("cowuvm,  not marked as cow because pgfault \n");
-        pte = walkpgdir(d, (void*) i, 1);
-        *pte = PTE_U | PTE_W | PTE_PG;
-        continue;
-      }
-    #endif
+    if(!(*pte & PTE_P) && !(*pte & PTE_PG))
+      panic("cowuvm: page not present and not page faulted!");
+      
+    if(*pte & PTE_PG)  //there is pgfault, then not mark this entry as cow
+    {
+      cprintf("cowuvm,  not marked as cow because pgfault \n");
+      pte = walkpgdir(d, (void*) i, 1);
+      *pte = PTE_U | PTE_W | PTE_PG;
+      continue;
+    }
+
 
     *pte |= PTE_COW;
     *pte &= ~PTE_W; 
@@ -775,7 +782,7 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
       curproc->ramPages[new_indx].swap_offset = -1;//change the swap offset by the new index
 
       update_selectionfiled_pagefault(curproc, &curproc->ramPages[new_indx], new_indx);
-  
+
       curproc->num_ram++;
       curproc->num_swap--;
     }
@@ -789,13 +796,13 @@ handle_pagedout(struct proc* curproc, char* start_page, pte_t* pte)
       if(curproc->free_head->next == 0)
       {
         curproc->free_tail = 0;
-        kfree((char*)curproc->free_head);
+        // kfree((char*)curproc->free_head);
         curproc->free_head = 0;
       }
       else
       {
         curproc->free_head = curproc->free_head->next;
-        kfree((char*)curproc->free_head->prev);
+        // kfree((char*)curproc->free_head->prev);
       }
 
       if(writeToSwapFile(curproc, (char*)ram_page->virt_addr, swap_offset, PGSIZE) < 0)   // buffer now has bytes from swapped page (faulty one)
@@ -1093,7 +1100,7 @@ uint aq()
     new_tail =  curproc->queue_tail->prev;
   }
 
-  kfree((char*)curproc->queue_tail);
+  // kfree((char*)curproc->queue_tail);
   curproc->queue_tail = new_tail;
   
   return  res;

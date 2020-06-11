@@ -262,7 +262,6 @@ fork(void)
   np->parent = curproc;
   *np->tf = *curproc->tf;
   
-#if SELECTION != NONE
   if(curproc->pid > 2) // not init or shell
   {
     np->totalPgfltCount = 0;
@@ -283,11 +282,14 @@ fork(void)
 
       // if(curproc->swappedPages[i].isused)
       // {
+
+      #if SELECTION != NONE
       np->swappedPages[i].isused = 1;
       np->swappedPages[i].virt_addr = curproc->swappedPages[i].virt_addr;
       np->swappedPages[i].pgdir = np->pgdir;
       np->swappedPages[i].swap_offset = curproc->swappedPages[i].swap_offset;
       np->swappedPages[i].ref_bit = curproc->swappedPages[i].ref_bit;
+      #endif
       // }
     }
       
@@ -304,7 +306,7 @@ fork(void)
       copyAQ(np);
     #endif
   }
-#endif
+// #endif
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 

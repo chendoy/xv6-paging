@@ -189,15 +189,15 @@ void num_pages_test()
 }
 
 void free_pages_test()
-{
-    printf(1, "num of free pages is: %d\n", getNumberOfFreePages());
+{ 
+    int init =  getNumberOfFreePages();
     int len =  10 * PGSIZE;
     char *arr = sbrk(len);
     arr++;
-    printf(1, "cur num of free pages shold be old-10: %d\n", getNumberOfFreePages());
+    printf(1, "allocated %d files <expected: %d> <actual: %d>\n",len/PGSIZE, init - (len/PGSIZE), getNumberOfFreePages());
 }
 
-void free_pages_with_swap_test2()
+void free_pages_with_swap_test()
 {
     int init_free = getNumberOfFreePages();
     printf(1, "init free pages: %d\n", init_free);
@@ -221,12 +221,10 @@ main(void)
     // simple_fork_test();
     // pagefault_test();
     // free_pages_test();
+    free_pages_with_swap_test(); // not relevant to selection=None
     // num_pages_test();
-
-    // pagefault_cow_test();
-    cow_refs_test();
-    // free_pages_with_swap_test1();
-    // free_pages_with_swap_test2();
-    // allocate_more_than_MaxPages_test();
+    // pagefault_cow_test(); 
+    // cow_refs_test();
+    // allocate_more_than_MaxPages_test(); // should pass only with selection=None
     exit();
 }
